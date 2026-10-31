@@ -2,6 +2,7 @@
 
 import json
 import math
+from os import environ
 from pathlib import Path
 
 import numpy as np
@@ -19,7 +20,7 @@ from isaacsim.robot_motion.motion_generation.interface_config_loader import (
 from omni.timeline import TimelineEventType
 from omni.ui import Workspace
 from omni.usd import get_context
-from pxr import Gf, Usd, UsdGeom, UsdLux, UsdPhysics
+from pxr import Gf, Sdf, Usd, UsdGeom, UsdLux, UsdPhysics, UsdUtils
 
 from bricksim import kit_runner
 from bricksim.core import allocate_brick_part
@@ -131,18 +132,25 @@ async def main() -> None:
     """
     root = Path(__file__).resolve().parents[1]
     config = json.loads((root / "research/configs/ur5e_lego.json").read_text())
-    checkpoint = Path(config["checkpoint"])
-    if not checkpoint.is_file():
-        raise FileNotFoundError(checkpoint)
+    mcp_root = Path(environ.get("ISAAC_MCP_ROOT", config["isaac_mcp_root"]))
+    asset_root = (root / mcp_root / "exts/ur5e-dt/assets").resolve()
+    if not asset_root.is_dir():
+        raise FileNotFoundError(
+            f"Lab assets not found at {asset_root}; set ISAAC_MCP_ROOT "
+            "to the isaac-mcp checkout"
+        )
+    workstation = Sdf.Layer.OpenAsAnonymous(str(root / config["workstation_scene"]))
+    if workstation is None:
+        raise RuntimeError("Could not load the workstation scene")
+    UsdUtils.ModifyAssetPaths(workstation, lambda path: str(asset_root / path))
 
     if World.instance() is not None:
         World.clear_instance()
     await create_new_stage_async()
     stage = get_current_stage()
-    # The new anonymous layer is stronger than the unchanged lab checkpoint.
-    stage.GetRootLayer().subLayerPaths.append(str(checkpoint))
+    # The session layer is stronger than the experiment-owned workstation.
+    stage.GetRootLayer().subLayerPaths.append(workstation.identifier)
     stage.SetEditTarget(stage.GetSessionLayer())
-    stage.GetPrimAtPath("/Graph").SetActive(False)
     stage.GetPrimAtPath("/World/defaultGroundPlane").SetActive(False)
 
     table = stage.GetPrimAtPath(config["table_mesh"])

@@ -2,24 +2,39 @@
 
 This separate simulation places three 2×4 bricks on the Vention workstation.
 The lab UR5e stays fixed on the workstation rail and uses the RG2 gripper to
-attempt one pick, transfer, and release. The source robot, gripper, rail, and
-workstation are referenced from the `isaac-mcp` checkpoint; their files are not
-modified. The lab checkpoint's ROS graphs are disabled in this scene.
+attempt one pick, transfer, and release. The robot, gripper, rail, and
+workstation come from the `isaac-mcp` assets; their files are not modified.
 
-The experiment requires an Isaac Sim 5.1 environment and the lab checkpoint
-named in `research/configs/ur5e_lego.json`. That path is specific to this
-machine: on another machine, update `checkpoint` to the absolute path of the
-local checkpoint. The checkpoint refers to robot, gripper, and workstation
-assets relative to its location in the `isaac-mcp/checkpoints/` directory.
-Those source assets are tracked in the MCP repository, but the checkpoint
-USDA is ignored by Git. Copy the tested checkpoint to that directory, or follow
-the regeneration guidance in `isaac-mcp/checkpoints/ur5e-dt-workstation-person-view-portable.json`.
-The tested local checkpoint's SHA-256 begins `b2b99903`; the manifest records
-`54a30cea`. Preserve the tested file for exact reproduction rather than
-assuming it matches the manifest.
+The experiment requires Isaac Sim 5.1 and an `isaac-mcp` checkout containing
+`exts/ur5e-dt/assets`. The tested workstation layout is versioned here in
+`research/assets/ur5e_workstation.usda`. It preserves the tested world and
+physics settings but omits the unused ROS graphs. An ignored checkpoint or its
+manifest is no longer required. The versioned scene's SHA-256 at validation was
+`fcdb197ba399b0acd065d62119ab2529befdd082fd6c46dd934d9f0ab2c0a830`.
+It was derived from the tested local checkpoint whose SHA-256 was
+`b2b999038cf26a8cc9d55980f5b50c8520506a101ea66653edaa3bd40bf34081`;
+the old MCP manifest records a different checksum and is not used by this
+experiment.
+
+The experiment resolves the scene's relative asset references against the MCP
+asset directory in memory. Open the scene through the experiment so those
+references are resolved.
+
+The default MCP location in `research/configs/ur5e_lego.json` is relative to
+this repository and matches the original lab machine. For another layout, set
+`ISAAC_MCP_ROOT` to the MCP checkout before launching. To reproduce the tested
+asset versions without changing an existing checkout, clone them separately:
+
+    git clone https://github.com/kalebcoleman/isaac-mcp.git /path/to/isaac-mcp
+    git -C /path/to/isaac-mcp checkout --detach e93e06921ecef381dd62f8668c54c2137f850baa
+    export ISAAC_MCP_ROOT=/path/to/isaac-mcp
+
+At that revision, the asset directory has Git tree ID
+`af27b735d00ff25c0a861c74e96a5d9f3139ab79`. Later revisions may also work, but
+asset changes can alter the simulation.
 
 The workstation is a visual model. Its black tabletop is lower than the
-checkpoint's invisible ground plane, so the experiment disables that plane and
+scene's invisible ground plane, so the experiment disables that plane and
 adds a collision box aligned with the tabletop mesh. Table and brick positions
 are in meters; joint angles are in radians and quaternions use wxyz order. The
 rail remains stationary. The default camera is framed around the bricks and
@@ -35,29 +50,30 @@ phase in the terminal, checks whether the brick rose with the gripper, and
 checks its final position after release. Press Stop to restore the starting
 scene, whether the transfer has finished or is still moving. Wait for the
 `press Play to begin` message, then press Play to run the full transfer again.
-The configuration is in
-`research/configs/ur5e_lego.json`; it contains the local checkpoint path and
-brick positions.
+The configuration is in `research/configs/ur5e_lego.json`; it contains the
+default MCP location and brick positions.
 
 The first live attempts failed because the RG2 fingertips move downward as the
 gripper closes and hit the table. The script now measures the closed fingertip
 geometry in free air before approaching the brick. On 2026-10-30, one simulated
 trial picked, lifted, transferred, and released the red brick; it settled at
 (-0.24923, -0.35067, -0.08547) m, about 1 mm from the requested XY location.
-The brick was dynamic and non-kinematic. This is one trial, not a robustness or
-physical calibration result. Evidence is in
+The portable scene completed the same transfer twice with Stop and Play between
+runs. The brick was dynamic and non-kinematic. These trials do not establish
+robustness or physical calibration. Evidence is in
 `outputs/rise/ur5e-lego-inspection/agent-run.log` and `success.png`.
+The portable-scene log is `outputs/rise/ur5e-lego-portable/isolated.log`.
 The full-window recording is
 `outputs/rise/ur5e-lego-video/ur5e-brick-transfer.mp4`.
 The recording and logs are local outputs ignored by Git.
 
 ## Changes and ownership
 
-The experiment, its configuration, and the launcher are
-`experiments/rise_ur5e_lego.py`, `research/configs/ur5e_lego.json`, and
-`scripts/run_ur5e_lego.sh`. The script composes the checkpoint in a new scene,
-adds the tabletop collider and bricks, measures gripper clearance, and runs
-the arm and gripper through the transfer. Its Stop handler reloads that scene.
+The experiment consists of `experiments/rise_ur5e_lego.py`,
+`research/assets/ur5e_workstation.usda`, `research/configs/ur5e_lego.json`,
+and `scripts/run_ur5e_lego.sh`. The script composes the workstation in a new
+scene, adds the tabletop collider and bricks, measures gripper clearance, and
+runs the arm and gripper through the transfer. Its Stop handler reloads it.
 `python/bricksim/utils/physics_step.py` checks whether Isaac Sim already
 removed a physics callback before cleaning it up after an interruption.
 
@@ -68,11 +84,12 @@ the simulator process, and use the bridge client when tool discovery is stale.
 No MCP source code or lab asset was changed for this experiment.
 
 To control a separate experiment process through the generic MCP bridge, set
-`ISAAC_MCP_PORT` to an unused port and pass the extension options to the
-launcher, for example:
+`ISAAC_MCP_ROOT` to the checkout and `ISAAC_MCP_PORT` to an unused port, then
+pass the extension options to the launcher:
 
+    export ISAAC_MCP_ROOT=/path/to/isaac-mcp
     ISAAC_MCP_PORT=8766 ./scripts/run_ur5e_lego.sh \
-      --ext-path /home/kaleb/Desktop/isaac-mcp/exts/isaac.mcp.bridge \
+      --ext-path "$ISAAC_MCP_ROOT/exts/isaac.mcp.bridge" \
       --enable isaac.mcp.bridge
 
 Verify the process and port with the bridge's `status` before acting. Do not use
