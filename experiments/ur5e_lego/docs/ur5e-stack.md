@@ -9,11 +9,11 @@ checked directly after release and again after the final settling interval.
 Use the Isaac Sim 5.1 environment and lab assets described in
 [`ur5e-lego.md`](ur5e-lego.md). From the repository root, run:
 
-    ./scripts/run_ur5e_stack.sh
+    ./experiments/ur5e_lego/scripts/run_ur5e_stack.sh
 
 Set `ISAAC_MCP_ROOT` if the lab asset checkout is elsewhere. Press Play when
 prompted; Stop rebuilds the initial scene. The stack settings are in
-`research/configs/ur5e_stack.json`. A `null` support means the baseplate; a
+`experiments/ur5e_lego/configs/ur5e_stack.json`. A `null` support means the baseplate; a
 number is the zero-based index of an earlier brick. The shared controller
 measures the grasp, computes a target from the current support and held brick
 poses, and commands a 0.5 mm press below the nominal connection pose. It holds

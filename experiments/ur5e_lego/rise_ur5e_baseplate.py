@@ -6,7 +6,7 @@ from pathlib import Path
 
 import numpy as np
 from carb.events import IEvent
-from experiments.rise_ur5e_lego import move_to, set_gripper
+from experiments.ur5e_lego.rise_ur5e_lego import move_to, set_gripper
 from isaacsim.core.api import World
 from isaacsim.core.prims import SingleArticulation, SingleXFormPrim
 from isaacsim.core.utils.numpy.rotations import (
@@ -35,7 +35,9 @@ from bricksim.core import (
 from bricksim.utils.physics_step import wait_for_physics_step
 
 
-async def main(assembly_config: str = "research/configs/ur5e_baseplate.json") -> None:
+async def main(
+    assembly_config: str = "experiments/ur5e_lego/configs/ur5e_baseplate.json",
+) -> None:
     """Create an isolated lab scene and assemble three bricks on a baseplate.
 
     Positions are meters, angular joint commands are radians, and quaternions
@@ -47,8 +49,10 @@ async def main(assembly_config: str = "research/configs/ur5e_baseplate.json") ->
     Returns:
         None. The simulation pauses after assembly; Stop resets the scene.
     """
-    root = Path(__file__).resolve().parents[1]
-    config = json.loads((root / "research/configs/ur5e_lego.json").read_text())
+    root = Path(__file__).resolve().parents[2]
+    config = json.loads(
+        (root / "experiments/ur5e_lego/configs/ur5e_lego.json").read_text()
+    )
     assembly = json.loads((root / assembly_config).read_text())
     mcp_root = Path(environ.get("ISAAC_MCP_ROOT", config["isaac_mcp_root"]))
     asset_root = (root / mcp_root / "exts/ur5e-dt/assets").resolve()

@@ -8,14 +8,14 @@ The original one-brick experiment remains available separately.
 Use the Isaac Sim 5.1 environment and lab assets described in
 [`ur5e-lego.md`](ur5e-lego.md). From the repository root, run:
 
-    ./scripts/run_ur5e_baseplate.sh
+    ./experiments/ur5e_lego/scripts/run_ur5e_baseplate.sh
 
 If the MCP checkout is elsewhere, set `ISAAC_MCP_ROOT` to its path before
 running. Press Play after the scene loads. Press Stop to rebuild the initial
 scene; wait for `press Play to begin`, then press Play to repeat. The source
-brick positions come from `research/configs/ur5e_lego.json`. The baseplate
+brick positions come from `experiments/ur5e_lego/configs/ur5e_lego.json`. The baseplate
 position and the three stud-grid offsets are in
-`research/configs/ur5e_baseplate.json`.
+`experiments/ur5e_lego/configs/ur5e_baseplate.json`.
 
 The experiment measures the closed finger collision geometry to center its
 grasp and maintain fingertip clearance. The finger collision centers are
