@@ -130,8 +130,10 @@ async def main() -> None:
     Returns:
         None. The simulation pauses after a successful release; Stop resets it.
     """
-    root = Path(__file__).resolve().parents[1]
-    config = json.loads((root / "research/configs/ur5e_lego.json").read_text())
+    root = Path(__file__).resolve().parents[2]
+    config = json.loads(
+        (root / "experiments/ur5e_lego/configs/ur5e_lego.json").read_text()
+    )
     mcp_root = Path(environ.get("ISAAC_MCP_ROOT", config["isaac_mcp_root"]))
     asset_root = (root / mcp_root / "exts/ur5e-dt/assets").resolve()
     if not asset_root.is_dir():
