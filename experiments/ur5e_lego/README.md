@@ -12,6 +12,8 @@ From the repository root, choose an experiment:
   `./experiments/ur5e_lego/scripts/run_ur5e_baseplate.sh`
 - [Stack three bricks](docs/ur5e-stack.md):
   `./experiments/ur5e_lego/scripts/run_ur5e_stack.sh`
+- [Stack four bricks](docs/ur5e-stack-four.md):
+  `./experiments/ur5e_lego/scripts/run_ur5e_stack_four.sh`
 
 The guides describe the Isaac Sim 5.1 and lab asset requirements, controls,
 results, and limitations. `configs/` contains the scene and placement settings,
@@ -19,7 +21,7 @@ results, and limitations. `configs/` contains the scene and placement settings,
 versioned results. Earlier local recordings remain under the ignored
 `outputs/rise/` directory.
 
-All three scenes load Isaac Sim's Simple Room through the configured Isaac asset
+All four scenes load Isaac Sim's Simple Room through the configured Isaac asset
 root. The room is a visual backdrop: its table is removed and its colliders and
 rigid bodies are disabled. The existing tabletop collider supports the bricks.
 The room asset must be accessible from the configured asset root; the scripts

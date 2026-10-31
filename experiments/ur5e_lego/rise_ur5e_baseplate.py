@@ -1,4 +1,4 @@
-"""Assemble three bricks on a baseplate with the lab UR5e."""
+"""Assemble bricks on a baseplate with the lab UR5e."""
 
 import asyncio
 import json
@@ -41,7 +41,7 @@ from bricksim.utils.physics_step import wait_for_physics_step
 async def main(
     assembly_config: str = "experiments/ur5e_lego/configs/ur5e_baseplate.json",
 ) -> None:
-    """Create an isolated lab scene and assemble three bricks on a baseplate.
+    """Create an isolated lab scene and assemble bricks on a baseplate.
 
     Positions are meters, angular joint commands are radians, and quaternions
     are wxyz. Press Play after the scene is prepared to begin the motion.
@@ -134,9 +134,14 @@ async def main(
     UsdPhysics.RigidBodyAPI(
         stage.GetPrimAtPath(plate_path)
     ).GetKinematicEnabledAttr().Set(True)
-    colors = [(201, 26, 9), (0, 85, 191), (35, 120, 65)]
+    colors = [(201, 26, 9), (0, 85, 191), (35, 120, 65), (242, 205, 55)]
+    brick_positions = assembly.get(
+        "brick_positions_xy_m", config["brick_positions_xy_m"]
+    )
     brick_paths = []
-    for (x, y), color in zip(config["brick_positions_xy_m"], colors, strict=True):
+    for (x, y), color in zip(
+        brick_positions, colors[: len(brick_positions)], strict=True
+    ):
         brick_paths.append(
             allocate_brick_part((2, 4, 3), color, -1, pos=(x, y, table_z + 0.001))
         )
@@ -164,8 +169,9 @@ async def main(
             brick_paths, assembly["placement_offsets"], supports, strict=True
         )
     ]
-    experiment = (
-        "stack" if any(index is not None for index in supports) else "baseplate"
+    experiment = assembly.get(
+        "experiment_name",
+        "stack" if any(index is not None for index in supports) else "baseplate",
     )
     recorder = RunRecorder(
         root,
@@ -300,6 +306,7 @@ async def main(
         flush=True,
     )
     end_effector = rmpflow.get_end_effector_as_prim()
+    total = len(brick_paths)
     for index, (brick_path, offset, support_index) in enumerate(
         zip(brick_paths, assembly["placement_offsets"], supports, strict=True), start=1
     ):
@@ -319,7 +326,7 @@ async def main(
         recorder.brick_index = index
         recorder.phase = "approach"
         source_position, _ = brick.get_world_pose()
-        print(f"UR5e baseplate: brick {index}/3 approach", flush=True)
+        print(f"UR5e baseplate: brick {index}/{total} approach", flush=True)
         for height in (grasp_z + 0.10, grasp_z):
             target_grasp[:3, 3] = (*source_position[:2], height)
             target_grasp[:3, 3] -= target_grasp[:3, 2] * lateral_offset
@@ -334,7 +341,7 @@ async def main(
                 target_tool[:3, 3],
                 rot_matrices_to_quats(target_tool[:3, :3]),
             )
-        print(f"UR5e baseplate: brick {index}/3 grasp", flush=True)
+        print(f"UR5e baseplate: brick {index}/{total} grasp", flush=True)
         recorder.phase = "grasp"
         await set_gripper(world, gripper, joint, -0.45)
         bounds_cache = UsdGeom.BBoxCache(
@@ -355,7 +362,8 @@ async def main(
             np.linalg.norm(np.mean(finger_centers, axis=0)[:2] - brick_position[:2])
         )
         print(
-            f"UR5e baseplate: brick {index}/3 grasp center error={center_error:.4f} m",
+            f"UR5e baseplate: brick {index}/{total} "
+            f"grasp center error={center_error:.4f} m",
             flush=True,
         )
         if center_error > 0.003:
@@ -401,7 +409,7 @@ async def main(
         )
         target_orientation = rot_matrices_to_quats(target_tool[:3, :3])
         print(
-            f"UR5e baseplate: brick {index}/3 transfer support={support_path} "
+            f"UR5e baseplate: brick {index}/{total} transfer support={support_path} "
             f"offset={offset} "
             f"tool_target_m={target_tool[:3, 3].tolist()}",
             flush=True,
@@ -439,7 +447,7 @@ async def main(
         target_tool[:2, 3] += correction
         prepress_position[:2] += correction
         print(
-            f"UR5e baseplate: brick {index}/3 prepress XY correction "
+            f"UR5e baseplate: brick {index}/{total} prepress XY correction "
             f"m={correction.tolist()}",
             flush=True,
         )
@@ -453,7 +461,7 @@ async def main(
             prepress_position,
             target_orientation,
         )
-        print(f"UR5e baseplate: brick {index}/3 press", flush=True)
+        print(f"UR5e baseplate: brick {index}/{total} press", flush=True)
         recorder.phase = "press"
         press_position = target_tool[:3, 3] - np.array([0.0, 0.0, 0.0005])
         elapsed = 0.0
@@ -509,7 +517,7 @@ async def main(
                 f"debug={diagnostics[:3]}"
             )
         print(
-            f"UR5e baseplate: brick {index}/3 connected "
+            f"UR5e baseplate: brick {index}/{total} connected "
             f"offset={connection.offset} yaw={connection.yaw}; "
             f"press held={held:.2f} s; peak contact force={peak_force:.2f} N",
             flush=True,
@@ -546,8 +554,10 @@ async def main(
                     f"yaw {placed.yaw}; "
                     f"expected {expected}, yaw 0"
                 )
-        print(f"UR5e baseplate: {index}/3 bricks secured", flush=True)
+        print(f"UR5e baseplate: {index}/{total} bricks secured", flush=True)
 
-    print("UR5e baseplate: assembly succeeded; all 3 bricks connected", flush=True)
+    print(
+        f"UR5e baseplate: assembly succeeded; all {total} bricks connected", flush=True
+    )
     recorder.finish("completed")
     await world.pause_async()
