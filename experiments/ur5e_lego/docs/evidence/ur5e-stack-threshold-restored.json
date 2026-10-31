@@ -2,8 +2,7 @@
   "output": "",
   "result": {
     "playing": false,
-    "required_force_N": 1.0
-  },
-  "scene": "Simple Room",
-  "recorded_date": "2026-10-31"
+    "required_force_N": 1.0,
+    "displayed_force_N": 1.0
+  }
 }

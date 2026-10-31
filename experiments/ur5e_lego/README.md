@@ -23,7 +23,30 @@ All three scenes load Isaac Sim's Simple Room through the configured Isaac asset
 root. The room is a visual backdrop: its table is removed and its colliders and
 rigid bodies are disabled. The existing tabletop collider supports the bricks.
 The room asset must be accessible from the configured asset root; the scripts
-fail if it cannot be loaded. [Stage inspection](docs/evidence/ur5e-room-stage.json).
+fail if it cannot be loaded. The settings panel is selected when each scene
+starts. [Stage inspection](docs/evidence/ur5e-room-stage.json).
+
+Each run writes a time-stamped JSON Lines file under `outputs/ur5e_lego/` and
+prints its path. Its metadata records the experiment settings, joint names,
+units and frames. Physics-step samples contain the phase, robot joint commands
+and simulated joint positions, velocities and efforts, gripper state, tool
+targets and measured poses, brick poses, placement errors, active assembly and
+breakage settings, and simulated contact and connection details.
+The final record reports completion, Stop, or interruption/failure; the console
+contains any exception details. An abrupt process exit can leave a log without
+a final record.
+
+Positions are in meters, angles in radians, and quaternions use wxyz order.
+Tool and part poses are in the simulator world frame; placement errors are in
+the support part frame. Samples carry simulation elapsed time and host UTC and
+monotonic timestamps. Samples are taken before the physics step ending at
+`simulation_elapsed_s`, so subtract `physics_dt_s` for the sample time.
+Contact data is the latest available, and USD poses may update at the rendering rate. Host
+clocks are not automatically synchronized with hardware. The scalar gripper
+target is for `rg2_gripper_joint`. Simulated
+object poses, contacts, connections, and efforts are ground-truth or solver
+outputs, not physical sensor readings. Compare only fields available from the
+lab setup after calibrating frames and clocks.
 
 One related change is outside this folder: the shared
 [`physics_step.py`](../../python/bricksim/utils/physics_step.py) utility checks

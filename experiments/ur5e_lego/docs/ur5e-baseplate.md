@@ -21,8 +21,9 @@ The experiment measures the closed finger collision geometry to center its
 grasp and maintain fingertip clearance. The finger collision centers are
 offset from the original grasp marker, so the target compensates for that
 offset before checking the finger-center error after closing. The placement
-pose uses the actual held brick and the desired stud connection. Each placement
-uses a two-second descent and a one-second press hold after connection. The
+pose uses the actual held brick and the desired stud connection. Before each
+descent, it corrects the held brick's world XY error using simulated poses.
+Each placement uses a two-second descent and a one-second press hold after connection. The
 controller requests a final position 0.5 mm below the ideal connection pose,
 as in the assembly demo.
 Contact forces are reported from the simulation's assembly diagnostics when
@@ -37,14 +38,11 @@ robot program or a physical-force calibration.
 
 ## Validation
 
-On 2026-10-31, two runs in Simple Room succeeded with Stop and Play between
-them. The measured finger-center errors were 0.2, 0.3, and 0.7 mm for the red,
-blue, and green bricks. Each press was held for one simulated second after
-connection; the reported peak contact forces were 1.18, 1.40, and 1.09 N.
-The script checked all three connections after settling in both runs. A
-separate physics-graph query after the first found all three direct plate
-connections active and no disassembly events. These are repeat runs of one
-fixed scene, not a robustness study.
+On 2026-10-31, two corrected runs in Simple Room retained all three direct
+plate connections after release and settling. In the recorded run, lateral
+errors immediately before connection were 0.150, 0.163, and 0.180 mm. The
+settings panel remains visible in the video. These are repeat runs of one
+fixed scene, not a robustness study or a physical calibration.
 
 The simulator also reported that its optional ROS 2 bridge could not load
 `libament_index_cpp.so`. The assembly completed without that bridge; this
@@ -53,3 +51,4 @@ experiment does not use ROS 2.
 - [Full-window video](evidence/ur5e-baseplate-assembly.mp4) (no audio)
 - [Pressing frame](evidence/ur5e-baseplate-press.png) and [final assembly](evidence/ur5e-baseplate-result.png)
 - [Physics connections](evidence/ur5e-baseplate-connections.json), [first run](evidence/ur5e-baseplate-log.txt), and [replay](evidence/ur5e-baseplate-room-replay.txt)
+- [Full run data](evidence/ur5e-baseplate-run.jsonl.gz)

@@ -3,9 +3,8 @@
   "result": {
     "previous_required_force_N": 1.0,
     "required_force_N": 1000.0,
-    "plate_red_connected": true,
-    "red_blue_connected": false
-  },
-  "scene": "Simple Room",
-  "recorded_date": "2026-10-31"
+    "displayed_force_N": 1000.0,
+    "first_connected": true,
+    "second_connected": false
+  }
 }

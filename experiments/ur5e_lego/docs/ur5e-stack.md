@@ -16,24 +16,28 @@ prompted; Stop rebuilds the initial scene. The stack settings are in
 `experiments/ur5e_lego/configs/ur5e_stack.json`. A `null` support means the baseplate; a
 number is the zero-based index of an earlier brick. The shared controller
 measures the grasp, computes a target from the current support and held brick
-poses, and commands a 0.5 mm press below the nominal connection pose. It holds
-the press for one simulated second after a connection appears. Positions are
+poses, and corrects the held brick's world XY error before descending. This
+correction uses simulated ground-truth poses. The controller commands a 0.5 mm
+press below the nominal connection pose and holds it for one simulated second
+after a connection appears. Positions are
 in meters, joint angles in radians, and quaternions use wxyz order.
 
 ## Results
 
-On 2026-10-31, two stack trials in Simple Room formed the plate-to-red,
-red-to-blue, and blue-to-green connections and retained all three after
-release and two simulated seconds of settling. The second followed a Stop/Play
-reset. Independent physics-graph queries found the expected offsets and yaw
-and zero disassembly events in both runs. Grasp-center errors were 0.2, 0.3,
-and 0.2 mm; reported peak simulated contact forces were 1.18, 1.38, and 1.37 N.
-The repeats produced the same rounded readings. These fixed-scene results are
-not a statistical success rate or a physical-force calibration.
+On 2026-10-31, corrected stack trials in Simple Room retained the plate-to-red,
+red-to-blue, and blue-to-green connections after release and settling. In two
+identical fixed-scene runs, the lateral error immediately before connection
+was 0.150, 0.181, and 0.161 mm, compared with 1.009, 1.238, and 1.075 mm in
+the measured baseline. Connection formation still corrected the vertical
+position by approximately 1.7–1.8 mm. USD poses may update at the rendering
+rate. These results are not a statistical success rate or a physical-force
+calibration; hardware would need measured brick and support poses to perform
+the same correction.
 
 - [Video](evidence/ur5e-stack-room.mp4) and [final scene](evidence/ur5e-stack-trial-01.png)
 - [First trial log](evidence/ur5e-stack-trial-01.txt) and [connection query](evidence/ur5e-stack-connections-01.json)
 - [Second trial log](evidence/ur5e-stack-trial-02.txt) and [connection query](evidence/ur5e-stack-connections-02.json)
+- [Alignment comparison](evidence/ur5e-stack-alignment-comparison.json) and [full run data](evidence/ur5e-stack-run.jsonl.gz)
 - [Baseplate runs in Simple Room](ur5e-baseplate.md)
 
 Before adding the room, a separate replay sampled brick positions during the lifts. The largest
@@ -53,7 +57,7 @@ In a separate room trial, the red brick was connected to the plate normally. Wit
 timeline paused before the red-to-blue connection formed, the simulated
 assembly requirement was raised from 1 N to 1000 N. After resuming, the blue
 brick press timed out with `connected=False`; the last available contact debug
-readings were about 6.1 N. The physics graph still showed the plate-to-red
+readings were about 6.4 N. The physics graph still showed the plate-to-red
 connection and no red-to-blue connection. The timeline was still playing after
 the reported failure, so it was paused before restoring the normal 1 N
 requirement. This checks rejection and reporting under an
@@ -61,7 +65,9 @@ artificial threshold; it does not model or measure physical brick breakage.
 [Video](evidence/ur5e-stack-rejection-room.mp4), [injection settings](evidence/ur5e-stack-failure-injection.json),
 [failure log](evidence/ur5e-stack-failure.txt),
 [post-failure graph](evidence/ur5e-stack-failure-result.json), and
-[restored threshold](evidence/ur5e-stack-threshold-restored.json).
+[restored threshold](evidence/ur5e-stack-threshold-restored.json). The
+[full run data](evidence/ur5e-stack-rejection-run.jsonl.gz) includes the
+active threshold at each step.
 
 To repeat this rejection test, start the stack with the generic bridge as in
 [`ur5e-lego.md`](ur5e-lego.md), verifying its process and port. After the log

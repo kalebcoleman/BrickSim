@@ -46,7 +46,7 @@ From the repository root, start a separate simulator instance with:
 
     ./experiments/ur5e_lego/scripts/run_ur5e_lego.sh
 
-The script opens the Stage, Property, and Console panels and selects the arm.
+The script opens the Stage, Property, Console, and settings panels and selects the arm.
 It pauses after loading. Press Play to attempt the transfer. It reports each
 phase in the terminal, checks whether the brick rose with the gripper, and
 checks its final position after release. Press Stop to restore the starting
@@ -58,7 +58,9 @@ default MCP location and brick positions.
 On 2026-10-31, the transfer succeeded in Simple Room; the brick settled at
 (-0.24955, -0.34889, -0.08547) m. [Video](evidence/ur5e-transfer-room.mp4),
 [final frame](evidence/ur5e-transfer-room-result.png), and
-[run log](evidence/ur5e-transfer-room-log.txt) record this run.
+[run log](evidence/ur5e-transfer-room-log.txt) record this run. The
+[full run data](evidence/ur5e-transfer-run.jsonl.gz) includes the robot,
+gripper, tool, brick and settings samples.
 
 Earlier attempts without the room failed because the RG2 fingertips move downward as the
 gripper closes and hit the table. The script now measures the closed fingertip
