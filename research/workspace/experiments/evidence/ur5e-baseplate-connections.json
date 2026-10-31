@@ -1,0 +1,35 @@
+{
+  "connections": [
+    {
+      "plate": "/World/managed/Parts/Part_0",
+      "brick": "/World/managed/Parts/Part_1",
+      "offset": [
+        3,
+        8
+      ],
+      "yaw": 0,
+      "still_connected": true
+    },
+    {
+      "plate": "/World/managed/Parts/Part_0",
+      "brick": "/World/managed/Parts/Part_2",
+      "offset": [
+        9,
+        8
+      ],
+      "yaw": 0,
+      "still_connected": true
+    },
+    {
+      "plate": "/World/managed/Parts/Part_0",
+      "brick": "/World/managed/Parts/Part_3",
+      "offset": [
+        15,
+        8
+      ],
+      "yaw": 0,
+      "still_connected": true
+    }
+  ],
+  "disassembly_events": 0
+}
