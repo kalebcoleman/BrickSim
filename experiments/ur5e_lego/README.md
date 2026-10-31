@@ -19,6 +19,12 @@ results, and limitations. `configs/` contains the scene and placement settings,
 versioned results. Earlier local recordings remain under the ignored
 `outputs/rise/` directory.
 
+All three scenes load Isaac Sim's Simple Room through the configured Isaac asset
+root. The room is a visual backdrop: its table is removed and its colliders and
+rigid bodies are disabled. The existing tabletop collider supports the bricks.
+The room asset must be accessible from the configured asset root; the scripts
+fail if it cannot be loaded. [Stage inspection](docs/evidence/ur5e-room-stage.json).
+
 One related change is outside this folder: the shared
 [`physics_step.py`](../../python/bricksim/utils/physics_step.py) utility checks
 whether a physics callback still exists before removing it after an

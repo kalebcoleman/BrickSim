@@ -37,18 +37,19 @@ robot program or a physical-force calibration.
 
 ## Validation
 
-Two complete runs succeeded with Stop and Play between them. The measured
-finger-center errors were 0.1, 0.3, and 0.2 mm for the red, blue, and green
-bricks. Each press was held for one simulated second after connection; the
-reported peak contact forces were 1.20, 1.69, and 1.25 N. A physics-graph query
-after the second run found all three direct plate connections active and no
-disassembly events. These are repeat runs of one fixed scene, not a robustness
-study.
+On 2026-10-31, two runs in Simple Room succeeded with Stop and Play between
+them. The measured finger-center errors were 0.2, 0.3, and 0.7 mm for the red,
+blue, and green bricks. Each press was held for one simulated second after
+connection; the reported peak contact forces were 1.18, 1.40, and 1.09 N.
+The script checked all three connections after settling in both runs. A
+separate physics-graph query after the first found all three direct plate
+connections active and no disassembly events. These are repeat runs of one
+fixed scene, not a robustness study.
 
 The simulator also reported that its optional ROS 2 bridge could not load
 `libament_index_cpp.so`. The assembly completed without that bridge; this
 experiment does not use ROS 2.
 
-- [Full-window video](evidence/ur5e-baseplate-assembly.mp4) (85.5 seconds, no audio)
+- [Full-window video](evidence/ur5e-baseplate-assembly.mp4) (no audio)
 - [Pressing frame](evidence/ur5e-baseplate-press.png) and [final assembly](evidence/ur5e-baseplate-result.png)
-- [Physics connections](evidence/ur5e-baseplate-connections.json) and [experiment log](evidence/ur5e-baseplate-log.txt)
+- [Physics connections](evidence/ur5e-baseplate-connections.json), [first run](evidence/ur5e-baseplate-log.txt), and [replay](evidence/ur5e-baseplate-room-replay.txt)

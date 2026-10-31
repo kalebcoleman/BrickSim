@@ -5,28 +5,17 @@ UR5e LEGO: gripper command_rad=1.0000 physics_target_rad=1.0000 usd_target_deg=5
 UR5e baseplate: fingertip offset=0.0648 m; finger center offset=0.0122 m; assembly force threshold=1.00 N
 UR5e baseplate: brick 1/3 approach
 UR5e baseplate: brick 1/3 grasp
-UR5e LEGO: gripper command_rad=-0.4500 physics_target_rad=-0.4500 usd_target_deg=-25.7831 joint_rad=-0.3411 velocity_rad_s=1.7891
-UR5e baseplate: brick 1/3 grasp center error=0.0001 m
-UR5e baseplate: brick 1/3 transfer support=/World/managed/Parts/Part_0 offset=[3, 8] tool_target_m=[-0.2966597275084707, -0.3163097305433226, 0.1501376596899561]
+UR5e LEGO: gripper command_rad=-0.4500 physics_target_rad=-0.4500 usd_target_deg=-25.7831 joint_rad=-0.3411 velocity_rad_s=1.7746
+UR5e baseplate: brick 1/3 grasp center error=0.0002 m
+UR5e baseplate: brick 1/3 transfer support=/World/managed/Parts/Part_0 offset=[3, 8] tool_target_m=[-0.2967559934738925, -0.31659908579154594, 0.15021800159957785]
 UR5e baseplate: brick 1/3 press
-UR5e baseplate: brick 1/3 connected offset=[3, 8] yaw=0; press held=1.00 s; peak contact force=1.20 N
+UR5e baseplate: brick 1/3 connected offset=[3, 8] yaw=0; press held=1.00 s; peak contact force=1.18 N
 UR5e LEGO: gripper command_rad=1.0000 physics_target_rad=1.0000 usd_target_deg=57.2958 joint_rad=0.9993 velocity_rad_s=0.0000
 UR5e baseplate: 1/3 bricks secured
 UR5e baseplate: brick 2/3 approach
 UR5e baseplate: brick 2/3 grasp
-UR5e LEGO: gripper command_rad=-0.4500 physics_target_rad=-0.4500 usd_target_deg=-25.7831 joint_rad=-0.3437 velocity_rad_s=1.7911
+UR5e LEGO: gripper command_rad=-0.4500 physics_target_rad=-0.4500 usd_target_deg=-25.7831 joint_rad=-0.3437 velocity_rad_s=1.8161
 UR5e baseplate: brick 2/3 grasp center error=0.0003 m
-UR5e baseplate: brick 2/3 transfer support=/World/managed/Parts/Part_1 offset=[0, 0] tool_target_m=[-0.2845578746449361, -0.3160981353768031, 0.15978260689226895]
+UR5e baseplate: brick 2/3 transfer support=/World/managed/Parts/Part_1 offset=[0, 0] tool_target_m=[-0.28990964579398537, -0.31629289699709945, 0.1601441241971928]
 UR5e baseplate: brick 2/3 press
-2026-10-31T20:43:11Z [337,592ms] [Info] [bricksim] PxSimulationFilterPatch: patched PxSimulationFilterCallback
-2026-10-31T20:43:11Z [337,592ms] [Info] [bricksim] PxSimulationEventPatch: patched PxSimulationEventCallback
-2026-10-31T20:43:11Z [337,592ms] [Info] [bricksim] LegoWorld: simulation set up successfully
-2026-10-31T20:43:51Z [378,281ms] [Info] [bricksim] Assembled at t=1599 Connection #0 at [-1]:/World/managed/Conns/Conn_0 between /World/managed/Parts/Part_0 #1 -> /World/managed/Parts/Part_1 #0
-2026-10-31T20:44:39Z [426,353ms] [Error] [omni.kit.app._impl] [py stderr]: Traceback (most recent call last):
-2026-10-31T20:44:39Z [426,353ms] [Error] [omni.kit.app._impl] [py stderr]:   File "/home/kaleb/Desktop/projects/RISE/BrickSim/python/bricksim/kit_runner.py", line 147, in wrapper_coro
-    await coro
-2026-10-31T20:44:39Z [426,353ms] [Error] [omni.kit.app._impl] [py stderr]:   File "experiments/rise_ur5e_stack.py", line 12, in main
-    await assemble("research/configs/ur5e_stack.json")
-2026-10-31T20:44:39Z [426,353ms] [Error] [omni.kit.app._impl] [py stderr]:   File "/home/kaleb/Desktop/projects/RISE/BrickSim/experiments/rise_ur5e_baseplate.py", line 404, in main
-    raise RuntimeError(
-2026-10-31T20:44:39Z [426,353ms] [Error] [omni.kit.app._impl] [py stderr]: RuntimeError: Brick 2 did not complete the press: connected=False, held=0.00 s, brick=[-0.2982699  -0.3309513  -0.07220446], tool=[-0.2847215  -0.31624162  0.15973917], target=[-0.28455787 -0.31609814  0.15928261], debug=[(-0.0012431422187120717, -6.62841583408956, 0.0010850554029210838, 0.016172380599380413, 0.03751926924706716, [0, 0]), (-0.0012349526892403634, -6.670178721507312, 0.0011448074331394185, 0.017385157210966222, 0.0386762995596465, [0, 0])]
+2026-10-31T22:52:38Z [314,221ms] [Error] [omni.kit.app._impl] [py stderr]: RuntimeError: Brick 2 did not complete the press: connected=False, held=0.00 s, brick=[-0.29801688 -0.33080822 -0.07210819], tool=[-0.29004517 -0.31644174  0.16006257], target=[-0.28990965 -0.3162929   0.15964412], debug=[(-0.0012163879456154392, -6.026992185833311, 0.0008140293983854728, 0.0007906329579611534, 0.013810527104217443, [0, 0]), (-0.0012232744947216418, -6.149646914858327, 0.000861845967194321, 0.001973544729064386, 0.01582991051426208, [0, 0])]

@@ -22,28 +22,21 @@ in meters, joint angles in radians, and quaternions use wxyz order.
 
 ## Results
 
-The earlier [baseplate experiment](ur5e-baseplate.md) completed two runs of
-one fixed scene, with three plate-to-brick connections; that did not measure
-robustness to changed positions or establish physical force calibration.
+On 2026-10-31, two stack trials in Simple Room formed the plate-to-red,
+red-to-blue, and blue-to-green connections and retained all three after
+release and two simulated seconds of settling. The second followed a Stop/Play
+reset. Independent physics-graph queries found the expected offsets and yaw
+and zero disassembly events in both runs. Grasp-center errors were 0.2, 0.3,
+and 0.2 mm; reported peak simulated contact forces were 1.18, 1.38, and 1.37 N.
+The repeats produced the same rounded readings. These fixed-scene results are
+not a statistical success rate or a physical-force calibration.
 
-Three stack trials of the same fixed scene formed the plate-to-red, red-to-blue
-and blue-to-green connections and retained all three after release and two
-simulated seconds of settling. The second and third trials followed Stop/Play
-resets. A separate physics-graph query found the expected offsets and yaw
-and zero disassembly events. Grasp-center errors were 0.1, 0.3 and 0.7 mm;
-reported peak simulated contact forces were 1.20, 1.02 and 1.44 N. The repeats produced the same rounded readings. The original side-by-side
-baseplate layout also passed a regression run with its three original offsets
-and zero disassembly events. [Regression log](evidence/ur5e-stack-baseplate-regression.txt)
-and [connection query](evidence/ur5e-stack-baseplate-regression.json). These are
-measurements from one fixed scene, not a statistical success rate or a
-physical-force calibration.
-
-- [Final scene](evidence/ur5e-stack-trial-01.png)
-- [Connection query](evidence/ur5e-stack-connections-01.json) and [trial log](evidence/ur5e-stack-trial-01.txt)
-
+- [Video](evidence/ur5e-stack-room.mp4) and [final scene](evidence/ur5e-stack-trial-01.png)
+- [First trial log](evidence/ur5e-stack-trial-01.txt) and [connection query](evidence/ur5e-stack-connections-01.json)
 - [Second trial log](evidence/ur5e-stack-trial-02.txt) and [connection query](evidence/ur5e-stack-connections-02.json)
+- [Baseplate runs in Simple Room](ur5e-baseplate.md)
 
-A separate replay sampled brick positions during the lifts. The largest
+Before adding the room, a separate replay sampled brick positions during the lifts. The largest
 per-axis variation relative to the gripper hand was 0.15 mm for the red brick
 and 0.22 mm for the blue brick. In a different replay, their largest variations
 relative to the robot tool were 1.24 and 1.57 mm. The different frames can
@@ -56,17 +49,19 @@ contact-force measurement nor a disturbance test was performed.
 
 ## Controlled rejection
 
-In a fourth trial, the red brick was connected to the plate normally. With the
+In a separate room trial, the red brick was connected to the plate normally. With the
 timeline paused before the red-to-blue connection formed, the simulated
 assembly requirement was raised from 1 N to 1000 N. After resuming, the blue
 brick press timed out with `connected=False`; the last available contact debug
-readings were about 6.6 N. The physics graph still showed the plate-to-red
-connection and no red-to-blue connection. The normal 1 N requirement was
-restored while paused afterward. This checks rejection and reporting under an
+readings were about 6.1 N. The physics graph still showed the plate-to-red
+connection and no red-to-blue connection. The timeline was still playing after
+the reported failure, so it was paused before restoring the normal 1 N
+requirement. This checks rejection and reporting under an
 artificial threshold; it does not model or measure physical brick breakage.
-[Injection settings](evidence/ur5e-stack-failure-injection.json),
-[failure log](evidence/ur5e-stack-failure.txt), and
-[post-failure graph](evidence/ur5e-stack-failure-result.json).
+[Video](evidence/ur5e-stack-rejection-room.mp4), [injection settings](evidence/ur5e-stack-failure-injection.json),
+[failure log](evidence/ur5e-stack-failure.txt),
+[post-failure graph](evidence/ur5e-stack-failure-result.json), and
+[restored threshold](evidence/ur5e-stack-threshold-restored.json).
 
 To repeat this rejection test, start the stack with the generic bridge as in
 [`ur5e-lego.md`](ur5e-lego.md), verifying its process and port. After the log

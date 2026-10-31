@@ -19,6 +19,7 @@ from isaacsim.robot_motion.motion_generation import ArticulationMotionPolicy, Rm
 from isaacsim.robot_motion.motion_generation.interface_config_loader import (
     load_supported_motion_policy_config,
 )
+from isaacsim.storage.native import get_assets_root_path
 from omni.timeline import TimelineEventType
 from omni.ui import Workspace
 from omni.usd import get_context
@@ -75,6 +76,26 @@ async def main(
     stage.SetEditTarget(stage.GetSessionLayer())
     stage.GetPrimAtPath("/World/defaultGroundPlane").SetActive(False)
 
+    assets_root = get_assets_root_path()
+    if not assets_root:
+        raise RuntimeError("Isaac Sim assets root is unavailable")
+    room_parent = UsdGeom.Xform.Define(stage, "/World/SimpleRoom")
+    room_parent.AddTranslateOp().Set(Gf.Vec3d(0.0, 0.0, -0.11))
+    room = UsdGeom.Xform.Define(stage, "/World/SimpleRoom/Room").GetPrim()
+    room.GetReferences().AddReference(
+        assets_root + "/Isaac/Environments/Simple_Room/simple_room.usd"
+    )
+    if not room.GetChildren():
+        raise RuntimeError("Simple Room asset could not be loaded")
+    for child in room.GetChildren():
+        if child.GetName().lower().startswith("table_low"):
+            child.SetActive(False)
+    for prim in Usd.PrimRange(room):
+        if prim.HasAPI(UsdPhysics.CollisionAPI):
+            UsdPhysics.CollisionAPI(prim).GetCollisionEnabledAttr().Set(False)
+        if prim.HasAPI(UsdPhysics.RigidBodyAPI):
+            UsdPhysics.RigidBodyAPI(prim).GetRigidBodyEnabledAttr().Set(False)
+
     table = stage.GetPrimAtPath(config["table_mesh"])
     if not table.IsValid():
         raise RuntimeError(f"Table mesh not found: {config['table_mesh']}")
@@ -128,8 +149,8 @@ async def main(
     world.scene.add(gripper)
     await world.reset_async()
     set_camera_view(
-        eye=np.array([-0.05, -0.82, 0.26]),
-        target=np.array([-0.45, -0.38, -0.06]),
+        eye=np.array([-0.3, -1.75, 0.7]),
+        target=np.array([-0.3, -0.3, 0.05]),
     )
     for window in ("Stage", "Property", "Console"):
         Workspace.get_window(window).visible = True
