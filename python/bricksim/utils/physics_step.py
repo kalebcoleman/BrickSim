@@ -23,7 +23,8 @@ async def wait_for_physics_step(world: World) -> float:
         nonlocal registered
         if registered:
             registered = False
-            world.remove_physics_callback(callback_name)
+            if world.physics_callback_exists(callback_name):
+                world.remove_physics_callback(callback_name)
 
     def on_step(step_size: float):
         if not fut.done():
