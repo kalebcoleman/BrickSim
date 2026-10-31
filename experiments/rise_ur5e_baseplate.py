@@ -35,18 +35,21 @@ from bricksim.core import (
 from bricksim.utils.physics_step import wait_for_physics_step
 
 
-async def main() -> None:
+async def main(assembly_config: str = "research/configs/ur5e_baseplate.json") -> None:
     """Create an isolated lab scene and assemble three bricks on a baseplate.
 
     Positions are meters, angular joint commands are radians, and quaternions
     are wxyz. Press Play after the scene is prepared to begin the motion.
+
+    Args:
+        assembly_config: Repository-relative path to the placement configuration.
 
     Returns:
         None. The simulation pauses after assembly; Stop resets the scene.
     """
     root = Path(__file__).resolve().parents[1]
     config = json.loads((root / "research/configs/ur5e_lego.json").read_text())
-    assembly = json.loads((root / "research/configs/ur5e_baseplate.json").read_text())
+    assembly = json.loads((root / assembly_config).read_text())
     mcp_root = Path(environ.get("ISAAC_MCP_ROOT", config["isaac_mcp_root"]))
     asset_root = (root / mcp_root / "exts/ur5e-dt/assets").resolve()
     if not asset_root.is_dir():
@@ -130,9 +133,6 @@ async def main() -> None:
     get_context().get_selection().set_selected_prim_paths(["/World/UR5e"], True)
     robot_base = SingleXFormPrim(
         prim_path="/World/UR5e", name="ur5e_base", reset_xform_properties=False
-    )
-    plate = SingleXFormPrim(
-        prim_path=plate_path, name="baseplate", reset_xform_properties=False
     )
     rmpflow = RmpFlow(**load_supported_motion_policy_config("UR5e", "RMPflow"))
     policy = ArticulationMotionPolicy(robot, rmpflow)
@@ -236,9 +236,20 @@ async def main() -> None:
         flush=True,
     )
     end_effector = rmpflow.get_end_effector_as_prim()
-    for index, (brick_path, offset) in enumerate(
-        zip(brick_paths, assembly["placement_offsets"], strict=True), start=1
+    supports = assembly.get("support_bricks", [None] * len(brick_paths))
+    for index, (brick_path, offset, support_index) in enumerate(
+        zip(brick_paths, assembly["placement_offsets"], supports, strict=True), start=1
     ):
+        if support_index is not None and not 0 <= support_index < index - 1:
+            raise ValueError(f"Brick {index} has an invalid support: {support_index}")
+        support_path = (
+            plate_path if support_index is None else brick_paths[support_index]
+        )
+        support = SingleXFormPrim(
+            prim_path=support_path,
+            name=f"assembly_support_{index}",
+            reset_xform_properties=False,
+        )
         brick = SingleXFormPrim(
             prim_path=brick_path,
             name=f"assembly_brick_{index}",
@@ -302,14 +313,14 @@ async def main() -> None:
             raise RuntimeError(f"Brick {index} was not retained during lift")
 
         # Poses are column-vector transforms; quaternions are wxyz.
-        plate_position, plate_orientation = plate.get_world_pose()
+        support_position, support_orientation = support.get_world_pose()
         relative_orientation, relative_position = compute_connection_transform(
-            plate_path, 1, brick_path, 0, tuple(offset), 0
+            support_path, 1, brick_path, 0, tuple(offset), 0
         )
         tool_position, tool_orientation = end_effector.get_world_pose()
         transforms = []
         for position, orientation in (
-            (plate_position, plate_orientation),
+            (support_position, support_orientation),
             (relative_position, relative_orientation),
             (brick_position, brick_orientation),
             (tool_position, tool_orientation),
@@ -323,7 +334,8 @@ async def main() -> None:
         )
         target_orientation = rot_matrices_to_quats(target_tool[:3, :3])
         print(
-            f"UR5e baseplate: brick {index}/3 transfer offset={offset} "
+            f"UR5e baseplate: brick {index}/3 transfer support={support_path} "
+            f"offset={offset} "
             f"tool_target_m={target_tool[:3, 3].tolist()}",
             flush=True,
         )
@@ -365,9 +377,9 @@ async def main() -> None:
             rmpflow.update_world()
             robot.apply_action(policy.get_next_articulation_action(dt))
             for info in get_assembly_debug_infos():
-                if info.stud_path == plate_path and info.hole_path == brick_path:
+                if info.stud_path == support_path and info.hole_path == brick_path:
                     peak_force = max(peak_force, -float(info.projected_force))
-            connection = lookup_physics_connection(plate_path, 1, brick_path, 0)
+            connection = lookup_physics_connection(support_path, 1, brick_path, 0)
             if connection is not None and descent >= 1.0:
                 held += dt
                 if held >= 1.0:
@@ -385,7 +397,7 @@ async def main() -> None:
                     info.grid_pos_snapped,
                 )
                 for info in get_assembly_debug_infos()
-                if info.stud_path == plate_path and info.hole_path == brick_path
+                if info.stud_path == support_path and info.hole_path == brick_path
             ]
             brick_position, _ = brick.get_world_pose()
             tool_position, _ = end_effector.get_world_pose()
@@ -417,9 +429,13 @@ async def main() -> None:
             while elapsed < 2.0:
                 elapsed += await wait_for_physics_step(world)
         for placed_index, placed_path in enumerate(brick_paths[:index], start=1):
-            placed = lookup_physics_connection(plate_path, 1, placed_path, 0)
+            placed_support = supports[placed_index - 1]
+            placed_support_path = (
+                plate_path if placed_support is None else brick_paths[placed_support]
+            )
+            placed = lookup_physics_connection(placed_support_path, 1, placed_path, 0)
             if placed is None:
-                raise RuntimeError(f"Brick {placed_index} detached from the baseplate")
+                raise RuntimeError(f"Brick {placed_index} detached from its support")
             expected = tuple(assembly["placement_offsets"][placed_index - 1])
             if tuple(placed.offset) != expected or placed.yaw != 0:
                 raise RuntimeError(
