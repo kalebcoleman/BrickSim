@@ -30,6 +30,11 @@ that step, so subtract `physics_dt_s` for the sample time.
 Video playback is independent of log time. Some curated videos show a different
 trial of the same experiment, as identified beside the video.
 
+The documented controlled-rejection trial is identified by its recorded
+experiment and timestamp and labeled as an intentional failure test. Its
+recorded controller outcome is shown separately. Other failed or incomplete
+runs are not assumed to be intentional.
+
 All current logs are simulation data. Tool and part poses are in the world
 frame, placement errors are in the support frame, joint angles are radians,
 positions are meters, and force is in newtons. The viewer converts placement

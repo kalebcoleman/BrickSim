@@ -124,6 +124,9 @@
               </div>
               <div class="title-row">
                 <h1 id="experiment-name">Experiment</h1>
+                <span id="scenario-badge" class="scenario-badge" hidden
+                  >Intentional test</span
+                >
                 <span id="status" class="status"></span>
               </div>
               <p class="subheading">
@@ -147,6 +150,22 @@
               independent.</span
             >
           </div>
+
+          <section
+            id="scenario-notice"
+            class="scenario-notice"
+            hidden
+            aria-labelledby="scenario-title"
+          >
+            <strong id="scenario-title">Intentional failure test</strong>
+            <p>
+              The required simulated assembly force was deliberately raised from
+              1 N to 1,000 N before brick 2 to check that its connection would
+              be rejected. The interruption / failure shown below is the
+              recorded controller outcome. This test does not model physical
+              brick breakage.
+            </p>
+          </section>
 
           <section class="metrics" aria-label="Run overview">
             <div class="metric">

@@ -22,8 +22,15 @@ function escapeText(value) {
   );
 }
 
+/** Identify the documented controlled-rejection trial by its recorded metadata. */
+function isControlledRejection(name, createdUtc) {
+  return name === "stack" && createdUtc === "2026-10-31T23:28:47.042595+00:00";
+}
+
 /** Return a readable experiment name without changing unknown names. */
-function experimentName(name) {
+function experimentName(name, createdUtc) {
+  if (isControlledRejection(name, createdUtc))
+    return "Controlled rejection test";
   return (
     {
       stack_four: "Four-brick stack",
@@ -81,7 +88,7 @@ function renderRuns() {
     const category = run.status === "completed" ? "completed" : "other";
     const matchesFilter = activeFilter === "all" || activeFilter === category;
     const text =
-      `${experimentName(run.experiment)} ${run.filename} ${run.status}`.toLowerCase();
+      `${experimentName(run.experiment, run.created_utc)} ${run.filename} ${run.status} ${isControlledRejection(run.experiment, run.created_utc) ? "intentional test" : ""}`.toLowerCase();
     return matchesFilter && text.includes(term);
   });
   byId("run-count").textContent = String(runs.length);
@@ -98,6 +105,7 @@ function renderRuns() {
   }
   for (const run of filtered) {
     const [label, category] = describeStatus(run.status);
+    const intentional = isControlledRejection(run.experiment, run.created_utc);
     const button = document.createElement("button");
     button.type = "button";
     button.className = `run${run.id === selectedId ? " active" : ""}`;
@@ -107,11 +115,12 @@ function renderRuns() {
     );
     button.setAttribute(
       "aria-label",
-      `${experimentName(run.experiment)}, ${describeStatus(run.status)[0]}, ${formatDate(run.created_utc)}`,
+      `${experimentName(run.experiment, run.created_utc)}, ${intentional ? "intentional test, " : ""}${describeStatus(run.status)[0]}, ${formatDate(run.created_utc)}`,
     );
-    button.innerHTML = `<span class="run-top"><span class="run-title">${escapeText(experimentName(run.experiment))}</span></span>
+    button.innerHTML = `<span class="run-top"><span class="run-title">${escapeText(experimentName(run.experiment, run.created_utc))}</span></span>
       <span class="run-date">${escapeText(formatDate(run.created_utc))}</span>
-      <span class="run-status"><i class="run-dot ${escapeText(category)}"></i>${escapeText(label)} <span>·</span> ${escapeText(formatTime(run.duration_s))}</span>`;
+      <span class="run-status"><i class="run-dot ${escapeText(category)}"></i>${escapeText(label)} <span>·</span> ${escapeText(formatTime(run.duration_s))}</span>
+      ${intentional ? '<span class="run-purpose">Intentional test</span>' : ""}`;
     button.addEventListener("click", () => selectRun(run.id));
     list.append(button);
   }
@@ -294,7 +303,11 @@ async function selectRun(id) {
       byId("content").hidden = false;
       const metadata = run.metadata || {};
       const [status, category] = describeStatus(run.status);
-      const name = experimentName(metadata.experiment);
+      const name = experimentName(metadata.experiment, metadata.created_utc);
+      const intentional = isControlledRejection(
+        metadata.experiment,
+        metadata.created_utc,
+      );
       byId("experiment-name").textContent = name;
       byId("breadcrumb-name").textContent = name.toUpperCase();
       byId("run-date").textContent = formatDate(metadata.created_utc);
@@ -302,12 +315,16 @@ async function selectRun(id) {
       byId("run-file").textContent = run.filename;
       byId("status").textContent = status;
       byId("status").className = `status ${category}`;
+      byId("scenario-badge").hidden = !intentional;
+      byId("scenario-notice").hidden = !intentional;
       byId("metric-outcome").textContent = status;
       byId("metric-outcome-note").textContent =
         run.error ||
-        (run.status === "completed"
-          ? "Script reported completion"
-          : "See run details");
+        (intentional
+          ? "Expected: brick 2 is rejected"
+          : run.status === "completed"
+            ? "Script reported completion"
+            : "See run details");
       const placements = run.placements || [];
       const connected = placements.filter((item) => item.connected).length;
       byId("metric-connections").textContent = placements.length
