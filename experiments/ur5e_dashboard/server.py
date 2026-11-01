@@ -1,5 +1,6 @@
 """Serve a local, read-only viewer for recorded UR5e experiments."""
 
+import zlib
 from argparse import ArgumentParser
 from gzip import open as open_gzip
 from hashlib import sha256
@@ -290,7 +291,7 @@ class RunCollection:
                 continue
             try:
                 metadata = self.read_metadata(path)
-            except (EOFError, OSError, ValueError, JSONDecodeError):
+            except (EOFError, OSError, ValueError, JSONDecodeError, zlib.error):
                 continue
             identity = (metadata.get("experiment"), metadata.get("created_utc"))
             if None in identity:
@@ -309,7 +310,13 @@ class RunCollection:
             if cached is None or cached[0] != version:
                 try:
                     summary = self.read_run(path, metadata)
-                except (EOFError, OSError, ValueError, JSONDecodeError) as exc:
+                except (
+                    EOFError,
+                    OSError,
+                    ValueError,
+                    JSONDecodeError,
+                    zlib.error,
+                ) as exc:
                     summary = {
                         "metadata": metadata,
                         "status": "invalid",
@@ -367,7 +374,7 @@ class RunCollection:
                             evidence_meta.get("experiment"),
                             evidence_meta.get("created_utc"),
                         )
-                    except (EOFError, OSError, ValueError, JSONDecodeError):
+                    except (EOFError, OSError, ValueError, JSONDecodeError, zlib.error):
                         pass
                 if same_run and exact:
                     video = video_path

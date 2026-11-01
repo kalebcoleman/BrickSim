@@ -1,5 +1,6 @@
 """Test recorded run summaries and the read-only HTTP interface."""
 
+import zlib
 from gzip import compress
 from gzip import open as open_gzip
 from hashlib import sha256
@@ -192,6 +193,53 @@ class ResultsViewerTests(TestCase):
         archive = self.evidence / "ur5e-stack-four-run.jsonl.gz"
         archive.write_bytes(compress((dumps(self.records[0]) + "\n").encode())[:15])
         with self.assertRaises(EOFError):
+            self.collection.read_metadata(archive)
+
+        runs = self.collection.refresh()
+        self.assertEqual(len(runs), 1)
+        self.assertEqual(runs[0]["status"], "completed")
+        self.assertIn("different run", runs[0]["video_label"])
+
+    def test_corrupt_gzip_does_not_disable_other_runs(self) -> None:
+        """A decompression error after metadata marks only that run invalid."""
+        metadata = dict(self.records[0])
+        metadata.update(experiment="stack", created_utc="2026-11-01T00:00:00+00:00")
+        content = dumps(metadata) + "\n" + (dumps(self.records[1]) + "\n") * 400
+        compressor = zlib.compressobj(wbits=31)
+        compressed = compressor.compress(content.encode())
+        # Start a reserved deflate block after a valid metadata and sample prefix.
+        compressed += compressor.flush(zlib.Z_SYNC_FLUSH) + b"\x07"
+        archive = self.outputs / "corrupt.jsonl.gz"
+        archive.write_bytes(compressed)
+        self.assertEqual(self.collection.read_metadata(archive)["experiment"], "stack")
+        with self.assertRaises(zlib.error):
+            self.collection.read_run(archive, metadata)
+
+        server = DashboardServer(0, self.collection)
+        worker = Thread(target=server.serve_forever, daemon=True)
+        worker.start()
+        connection = HTTPConnection("127.0.0.1", server.server_port, timeout=5)
+        try:
+            connection.request("GET", "/api/runs")
+            response = connection.getresponse()
+            self.assertEqual(response.status, 200)
+            runs = {run["filename"]: run for run in loads(response.read())}
+            self.assertEqual(runs[archive.name]["status"], "invalid")
+            self.assertEqual(runs[self.raw.name]["status"], "completed")
+        finally:
+            connection.close()
+            server.shutdown()
+            worker.join(timeout=5)
+            server.server_close()
+
+    def test_corrupt_gzip_metadata_is_skipped_for_discovery_and_video(self) -> None:
+        """Unreadable compressed metadata does not hide runs or claim a video match."""
+        archive = self.evidence / "ur5e-stack-four-run.jsonl.gz"
+        compressed = bytearray(compress(self.content.encode()))
+        # Set the first deflate block type to the reserved value 0b11.
+        compressed[10] = (compressed[10] & 0xF9) | 0x06
+        archive.write_bytes(compressed)
+        with self.assertRaises(zlib.error):
             self.collection.read_metadata(archive)
 
         runs = self.collection.refresh()
