@@ -4,6 +4,9 @@ This folder contains the RISE lab UR5e brick work: the scripts, workstation
 scene, settings, launchers, experiment notes, and recorded evidence. The
 existing project demos and other experiments remain outside this folder.
 
+[Review recorded experiments](../ur5e_dashboard/README.md) in a local results
+dashboard.
+
 From the repository root, choose an experiment:
 
 - [Pick up and transfer one brick](docs/ur5e-lego.md):
