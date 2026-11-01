@@ -1,6 +1,8 @@
 """Test recorded run summaries and the read-only HTTP interface."""
 
+from gzip import compress
 from gzip import open as open_gzip
+from hashlib import sha256
 from http.client import HTTPConnection
 from json import dumps, loads
 from pathlib import Path
@@ -131,6 +133,71 @@ class ResultsViewerTests(TestCase):
     def test_empty_collection_has_no_invented_runs(self) -> None:
         """An empty experiment root produces an empty library."""
         self.assertEqual(RunCollection(self.root / "empty").refresh(), [])
+
+    def test_truncated_gzip_does_not_disable_other_runs(self) -> None:
+        """A truncated gzip with readable metadata is marked invalid in the API."""
+        metadata = dict(self.records[0])
+        metadata.update(experiment="stack", created_utc="2026-11-01T00:00:00+00:00")
+        lines = [dumps(metadata)]
+        for index in range(800):
+            lines.append(
+                dumps(
+                    {
+                        "kind": "sample",
+                        "simulation_elapsed_s": index / 120,
+                        "padding": sha256(str(index).encode()).hexdigest(),
+                    }
+                )
+            )
+        lines.append(dumps({"kind": "end", "status": "completed"}))
+        archive = self.outputs / "truncated.jsonl.gz"
+        compressed = compress(("\n".join(lines) + "\n").encode())
+        archive.write_bytes(compressed[:-8])
+        self.assertGreater(archive.stat().st_size, 8192)
+        self.assertEqual(self.collection.read_metadata(archive)["experiment"], "stack")
+
+        server = DashboardServer(0, self.collection)
+        worker = Thread(target=server.serve_forever, daemon=True)
+        worker.start()
+        connection = HTTPConnection("127.0.0.1", server.server_port, timeout=5)
+        try:
+            connection.request("GET", "/api/runs")
+            response = connection.getresponse()
+            self.assertEqual(response.status, 200)
+            runs = {run["filename"]: run for run in loads(response.read())}
+            self.assertEqual(runs[archive.name]["status"], "invalid")
+            self.assertEqual(runs[self.raw.name]["status"], "completed")
+
+            connection.request("GET", f"/api/run?id={runs[archive.name]['id']}")
+            response = connection.getresponse()
+            self.assertEqual(response.status, 200)
+            self.assertTrue(loads(response.read())["error"])
+
+            archive.write_bytes(compressed)
+            connection.request("GET", "/api/runs")
+            response = connection.getresponse()
+            self.assertEqual(response.status, 200)
+            statuses = {
+                run["filename"]: run["status"] for run in loads(response.read())
+            }
+            self.assertEqual(statuses[archive.name], "completed")
+        finally:
+            connection.close()
+            server.shutdown()
+            worker.join(timeout=5)
+            server.server_close()
+
+    def test_truncated_gzip_metadata_is_skipped_for_discovery_and_video(self) -> None:
+        """An unreadable gzip header does not hide the valid uncompressed run."""
+        archive = self.evidence / "ur5e-stack-four-run.jsonl.gz"
+        archive.write_bytes(compress((dumps(self.records[0]) + "\n").encode())[:15])
+        with self.assertRaises(EOFError):
+            self.collection.read_metadata(archive)
+
+        runs = self.collection.refresh()
+        self.assertEqual(len(runs), 1)
+        self.assertEqual(runs[0]["status"], "completed")
+        self.assertIn("different run", runs[0]["video_label"])
 
     def test_nonfinite_values_are_unavailable(self) -> None:
         """Invalid numeric measurements do not break the browser JSON response."""

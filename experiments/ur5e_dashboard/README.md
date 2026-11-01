@@ -18,8 +18,10 @@ The selected root may contain live or archived JSON Lines files under
 `experiments/ur5e_lego/docs/evidence/`. Matching plain and compressed logs are
 listed once. A new video can be placed beside its log with the same base name,
 for example `example.jsonl` and `example.mp4`. Press **Refresh runs** after new
-data is written. An unfinished recording is marked incomplete; the viewer does
-not control or modify the simulator or files.
+data is written. An unfinished recording is marked incomplete. A truncated gzip
+is marked invalid if its metadata is readable; otherwise it is skipped. Other
+recordings remain available. The viewer does not control or modify the
+simulator or files.
 
 The run list, phase history, connection state, last pre-connection alignment,
 settings, and signal plots come from the recorded samples. The plots preserve

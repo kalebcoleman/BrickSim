@@ -290,7 +290,7 @@ class RunCollection:
                 continue
             try:
                 metadata = self.read_metadata(path)
-            except (OSError, ValueError, JSONDecodeError):
+            except (EOFError, OSError, ValueError, JSONDecodeError):
                 continue
             identity = (metadata.get("experiment"), metadata.get("created_utc"))
             if None in identity:
@@ -309,7 +309,7 @@ class RunCollection:
             if cached is None or cached[0] != version:
                 try:
                     summary = self.read_run(path, metadata)
-                except (OSError, ValueError, JSONDecodeError) as exc:
+                except (EOFError, OSError, ValueError, JSONDecodeError) as exc:
                     summary = {
                         "metadata": metadata,
                         "status": "invalid",
@@ -367,7 +367,7 @@ class RunCollection:
                             evidence_meta.get("experiment"),
                             evidence_meta.get("created_utc"),
                         )
-                    except (OSError, ValueError, JSONDecodeError):
+                    except (EOFError, OSError, ValueError, JSONDecodeError):
                         pass
                 if same_run and exact:
                     video = video_path
