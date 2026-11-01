@@ -3,6 +3,8 @@
   "result": {
     "previous_required_force_N": 1.0,
     "required_force_N": 1000.0,
-    "red_blue_connected": false
+    "displayed_force_N": 1000.0,
+    "first_connected": true,
+    "second_connected": false
   }
 }

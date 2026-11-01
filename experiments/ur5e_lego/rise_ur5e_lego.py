@@ -1,5 +1,6 @@
 """Pick and place a brick with the lab UR5e on its fixed workstation rail."""
 
+import asyncio
 import json
 import math
 from os import environ
@@ -7,6 +8,7 @@ from pathlib import Path
 
 import numpy as np
 from carb.events import IEvent
+from experiments.ur5e_lego.recording import RunRecorder
 from isaacsim.core.api import World
 from isaacsim.core.prims import SingleArticulation, SingleXFormPrim
 from isaacsim.core.utils.numpy.rotations import rot_matrices_to_quats
@@ -17,6 +19,7 @@ from isaacsim.robot_motion.motion_generation import ArticulationMotionPolicy, Rm
 from isaacsim.robot_motion.motion_generation.interface_config_loader import (
     load_supported_motion_policy_config,
 )
+from isaacsim.storage.native import get_assets_root_path
 from omni.timeline import TimelineEventType
 from omni.ui import Workspace
 from omni.usd import get_context
@@ -33,6 +36,7 @@ async def move_to(
     robot_base: SingleXFormPrim,
     rmpflow: RmpFlow,
     policy: ArticulationMotionPolicy,
+    recorder: RunRecorder,
     position: np.ndarray,
     orientation: np.ndarray,
 ) -> None:
@@ -44,12 +48,17 @@ async def move_to(
         robot_base: Transform of the complete robot base.
         rmpflow: UR5e motion policy.
         policy: Adapter between the policy and articulation.
+        recorder: Active experiment recorder.
         position: Target world position in meters, shape (3,).
         orientation: Target world orientation as a wxyz quaternion, shape (4,).
 
     Returns:
         None. Raises RuntimeError if the target is not reached in 15 seconds.
     """
+    recorder.tool_target = {
+        "position_m": position.tolist(),
+        "orientation_wxyz": orientation.tolist(),
+    }
     elapsed = 0.0
     settled = 0.0
     end_effector = rmpflow.get_end_effector_as_prim()
@@ -155,6 +164,26 @@ async def main() -> None:
     stage.SetEditTarget(stage.GetSessionLayer())
     stage.GetPrimAtPath("/World/defaultGroundPlane").SetActive(False)
 
+    assets_root = get_assets_root_path()
+    if not assets_root:
+        raise RuntimeError("Isaac Sim assets root is unavailable")
+    room_parent = UsdGeom.Xform.Define(stage, "/World/SimpleRoom")
+    room_parent.AddTranslateOp().Set(Gf.Vec3d(0.0, 0.0, -0.11))
+    room = UsdGeom.Xform.Define(stage, "/World/SimpleRoom/Room").GetPrim()
+    room.GetReferences().AddReference(
+        assets_root + "/Isaac/Environments/Simple_Room/simple_room.usd"
+    )
+    if not room.GetChildren():
+        raise RuntimeError("Simple Room asset could not be loaded")
+    for child in room.GetChildren():
+        if child.GetName().lower().startswith("table_low"):
+            child.SetActive(False)
+    for prim in Usd.PrimRange(room):
+        if prim.HasAPI(UsdPhysics.CollisionAPI):
+            UsdPhysics.CollisionAPI(prim).GetCollisionEnabledAttr().Set(False)
+        if prim.HasAPI(UsdPhysics.RigidBodyAPI):
+            UsdPhysics.RigidBodyAPI(prim).GetRigidBodyEnabledAttr().Set(False)
+
     table = stage.GetPrimAtPath(config["table_mesh"])
     if not table.IsValid():
         raise RuntimeError(f"Table mesh not found: {config['table_mesh']}")
@@ -200,13 +229,31 @@ async def main() -> None:
     world.scene.add(robot)
     world.scene.add(gripper)
     await world.reset_async()
-    set_camera_view(
-        eye=np.array([-0.05, -0.82, 0.26]),
-        target=np.array([-0.45, -0.38, -0.06]),
+    recorder = RunRecorder(
+        root,
+        "transfer",
+        world,
+        robot,
+        gripper,
+        brick_paths,
+        [],
+        {
+            "scene": config,
+            "resolved_lab_assets": str(asset_root),
+            "isaac_assets_root": assets_root,
+        },
     )
-    for window in ("Stage", "Property", "Console"):
+    task = asyncio.current_task()
+    if task is None:
+        raise RuntimeError("Experiment task is unavailable")
+    task.add_done_callback(recorder.on_task_done)
+    set_camera_view(
+        eye=np.array([-0.3, -1.75, 0.7]),
+        target=np.array([-0.3, -0.3, 0.05]),
+    )
+    for window in ("Stage", "Property", "Console", "BrickSim Settings"):
         Workspace.get_window(window).visible = True
-    Workspace.get_window("Console").focus()
+    Workspace.get_window("BrickSim Settings").focus()
     get_context().get_selection().set_selected_prim_paths(["/World/UR5e"], True)
     robot_base = SingleXFormPrim(
         prim_path="/World/UR5e", name="ur5e_base", reset_xform_properties=False
@@ -232,6 +279,7 @@ async def main() -> None:
             event.type == int(TimelineEventType.STOP)
             and kit_runner.current_target() == target
         ):
+            recorder.finish("stopped")
             print("UR5e LEGO: resetting scene", flush=True)
             kit_runner.rerun()
 
@@ -310,7 +358,10 @@ async def main() -> None:
         ("place", *destination_xy, grasp_z),
         ("retreat", *destination_xy, grasp_z + 0.10),
     ):
+        recorder.phase = phase
+        recorder.brick_index = 1
         if phase == "lift":
+            recorder.phase = "grasp_close"
             for moment in ("before", "after"):
                 if moment == "after":
                     print("UR5e LEGO: closing gripper", flush=True)
@@ -343,9 +394,12 @@ async def main() -> None:
                     f"joint_rad={gripper_position:.4f}",
                     flush=True,
                 )
+            recorder.phase = phase
         if phase == "retreat":
+            recorder.phase = "release"
             print("UR5e LEGO: releasing brick", flush=True)
             await set_gripper(world, gripper, joint, 1.0)
+            recorder.phase = phase
         target_grasp[:3, 3] = (x, y, z)
         target_tool = target_grasp @ np.linalg.inv(tool_to_grasp)
         print(f"UR5e LEGO: {phase}", flush=True)
@@ -355,6 +409,7 @@ async def main() -> None:
             robot_base,
             rmpflow,
             policy,
+            recorder,
             target_tool[:3, 3],
             rot_matrices_to_quats(target_tool[:3, :3]),
         )
@@ -372,4 +427,5 @@ async def main() -> None:
     ):
         raise RuntimeError(f"Brick did not settle at the destination: {brick_position}")
     print(f"UR5e LEGO: pick and place succeeded at {brick_position}", flush=True)
+    recorder.finish("completed")
     await world.pause_async()

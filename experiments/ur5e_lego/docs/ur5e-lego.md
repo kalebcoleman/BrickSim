@@ -37,14 +37,16 @@ The workstation is a visual model. Its black tabletop is lower than the
 scene's invisible ground plane, so the experiment disables that plane and
 adds a collision box aligned with the tabletop mesh. Table and brick positions
 are in meters; joint angles are in radians and quaternions use wxyz order. The
-rail remains stationary. The default camera is framed around the bricks and
-gripper, with a dome light providing additional fill.
+rail remains stationary. Isaac Sim's Simple Room is loaded from its configured
+asset root at z = -0.11 m, matching the lab workstation scene. Its built-in
+table is removed and its colliders and rigid bodies are disabled. The camera
+shows the workstation and room, with a dome light providing additional fill.
 
 From the repository root, start a separate simulator instance with:
 
     ./experiments/ur5e_lego/scripts/run_ur5e_lego.sh
 
-The script opens the Stage, Property, and Console panels and selects the arm.
+The script opens the Stage, Property, Console, and settings panels and selects the arm.
 It pauses after loading. Press Play to attempt the transfer. It reports each
 phase in the terminal, checks whether the brick rose with the gripper, and
 checks its final position after release. Press Stop to restore the starting
@@ -53,7 +55,14 @@ scene, whether the transfer has finished or is still moving. Wait for the
 The configuration is in `experiments/ur5e_lego/configs/ur5e_lego.json`; it contains the
 default MCP location and brick positions.
 
-The first live attempts failed because the RG2 fingertips move downward as the
+On 2026-10-31, the transfer succeeded in Simple Room; the brick settled at
+(-0.24955, -0.34889, -0.08547) m. [Video](evidence/ur5e-transfer-room.mp4),
+[final frame](evidence/ur5e-transfer-room-result.png), and
+[run log](evidence/ur5e-transfer-room-log.txt) record this run. The
+[full run data](evidence/ur5e-transfer-run.jsonl.gz) includes the robot,
+gripper, tool, brick and settings samples.
+
+Earlier attempts without the room failed because the RG2 fingertips move downward as the
 gripper closes and hit the table. The script now measures the closed fingertip
 geometry in free air before approaching the brick. On 2026-10-30, one simulated
 trial picked, lifted, transferred, and released the red brick; it settled at

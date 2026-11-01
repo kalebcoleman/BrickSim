@@ -1,11 +1,13 @@
-"""Assemble three bricks on a baseplate with the lab UR5e."""
+"""Assemble bricks on a baseplate with the lab UR5e."""
 
+import asyncio
 import json
 from os import environ
 from pathlib import Path
 
 import numpy as np
 from carb.events import IEvent
+from experiments.ur5e_lego.recording import RunRecorder
 from experiments.ur5e_lego.rise_ur5e_lego import move_to, set_gripper
 from isaacsim.core.api import World
 from isaacsim.core.prims import SingleArticulation, SingleXFormPrim
@@ -19,6 +21,7 @@ from isaacsim.robot_motion.motion_generation import ArticulationMotionPolicy, Rm
 from isaacsim.robot_motion.motion_generation.interface_config_loader import (
     load_supported_motion_policy_config,
 )
+from isaacsim.storage.native import get_assets_root_path
 from omni.timeline import TimelineEventType
 from omni.ui import Workspace
 from omni.usd import get_context
@@ -38,7 +41,7 @@ from bricksim.utils.physics_step import wait_for_physics_step
 async def main(
     assembly_config: str = "experiments/ur5e_lego/configs/ur5e_baseplate.json",
 ) -> None:
-    """Create an isolated lab scene and assemble three bricks on a baseplate.
+    """Create an isolated lab scene and assemble bricks on a baseplate.
 
     Positions are meters, angular joint commands are radians, and quaternions
     are wxyz. Press Play after the scene is prepared to begin the motion.
@@ -74,6 +77,26 @@ async def main(
     stage.GetRootLayer().subLayerPaths.append(workstation.identifier)
     stage.SetEditTarget(stage.GetSessionLayer())
     stage.GetPrimAtPath("/World/defaultGroundPlane").SetActive(False)
+
+    assets_root = get_assets_root_path()
+    if not assets_root:
+        raise RuntimeError("Isaac Sim assets root is unavailable")
+    room_parent = UsdGeom.Xform.Define(stage, "/World/SimpleRoom")
+    room_parent.AddTranslateOp().Set(Gf.Vec3d(0.0, 0.0, -0.11))
+    room = UsdGeom.Xform.Define(stage, "/World/SimpleRoom/Room").GetPrim()
+    room.GetReferences().AddReference(
+        assets_root + "/Isaac/Environments/Simple_Room/simple_room.usd"
+    )
+    if not room.GetChildren():
+        raise RuntimeError("Simple Room asset could not be loaded")
+    for child in room.GetChildren():
+        if child.GetName().lower().startswith("table_low"):
+            child.SetActive(False)
+    for prim in Usd.PrimRange(room):
+        if prim.HasAPI(UsdPhysics.CollisionAPI):
+            UsdPhysics.CollisionAPI(prim).GetCollisionEnabledAttr().Set(False)
+        if prim.HasAPI(UsdPhysics.RigidBodyAPI):
+            UsdPhysics.RigidBodyAPI(prim).GetRigidBodyEnabledAttr().Set(False)
 
     table = stage.GetPrimAtPath(config["table_mesh"])
     if not table.IsValid():
@@ -111,9 +134,14 @@ async def main(
     UsdPhysics.RigidBodyAPI(
         stage.GetPrimAtPath(plate_path)
     ).GetKinematicEnabledAttr().Set(True)
-    colors = [(201, 26, 9), (0, 85, 191), (35, 120, 65)]
+    colors = [(201, 26, 9), (0, 85, 191), (35, 120, 65), (242, 205, 55)]
+    brick_positions = assembly.get(
+        "brick_positions_xy_m", config["brick_positions_xy_m"]
+    )
     brick_paths = []
-    for (x, y), color in zip(config["brick_positions_xy_m"], colors, strict=True):
+    for (x, y), color in zip(
+        brick_positions, colors[: len(brick_positions)], strict=True
+    ):
         brick_paths.append(
             allocate_brick_part((2, 4, 3), color, -1, pos=(x, y, table_z + 0.001))
         )
@@ -127,13 +155,50 @@ async def main(
     world.scene.add(robot)
     world.scene.add(gripper)
     await world.reset_async()
-    set_camera_view(
-        eye=np.array([-0.05, -0.82, 0.26]),
-        target=np.array([-0.45, -0.38, -0.06]),
+    supports = assembly.get("support_bricks", [None] * len(brick_paths))
+    for index, support_index in enumerate(supports, start=1):
+        if support_index is not None and not 0 <= support_index < index - 1:
+            raise ValueError(f"Brick {index} has an invalid support: {support_index}")
+    placements = [
+        (
+            plate_path if support_index is None else brick_paths[support_index],
+            brick_path,
+            tuple(offset),
+        )
+        for brick_path, offset, support_index in zip(
+            brick_paths, assembly["placement_offsets"], supports, strict=True
+        )
+    ]
+    experiment = assembly.get(
+        "experiment_name",
+        "stack" if any(index is not None for index in supports) else "baseplate",
     )
-    for window in ("Stage", "Property", "Console"):
+    recorder = RunRecorder(
+        root,
+        experiment,
+        world,
+        robot,
+        gripper,
+        [plate_path, *brick_paths],
+        placements,
+        {
+            "scene": config,
+            "assembly": assembly,
+            "resolved_lab_assets": str(asset_root),
+            "isaac_assets_root": assets_root,
+        },
+    )
+    task = asyncio.current_task()
+    if task is None:
+        raise RuntimeError("Experiment task is unavailable")
+    task.add_done_callback(recorder.on_task_done)
+    set_camera_view(
+        eye=np.array([-0.3, -1.75, 0.7]),
+        target=np.array([-0.3, -0.3, 0.05]),
+    )
+    for window in ("Stage", "Property", "Console", "BrickSim Settings"):
         Workspace.get_window(window).visible = True
-    Workspace.get_window("Console").focus()
+    Workspace.get_window("BrickSim Settings").focus()
     get_context().get_selection().set_selected_prim_paths(["/World/UR5e"], True)
     robot_base = SingleXFormPrim(
         prim_path="/World/UR5e", name="ur5e_base", reset_xform_properties=False
@@ -156,6 +221,7 @@ async def main(
             event.type == int(TimelineEventType.STOP)
             and kit_runner.current_target() == target
         ):
+            recorder.finish("stopped")
             print("UR5e baseplate: resetting scene", flush=True)
             kit_runner.rerun()
 
@@ -240,12 +306,10 @@ async def main(
         flush=True,
     )
     end_effector = rmpflow.get_end_effector_as_prim()
-    supports = assembly.get("support_bricks", [None] * len(brick_paths))
+    total = len(brick_paths)
     for index, (brick_path, offset, support_index) in enumerate(
         zip(brick_paths, assembly["placement_offsets"], supports, strict=True), start=1
     ):
-        if support_index is not None and not 0 <= support_index < index - 1:
-            raise ValueError(f"Brick {index} has an invalid support: {support_index}")
         support_path = (
             plate_path if support_index is None else brick_paths[support_index]
         )
@@ -259,8 +323,10 @@ async def main(
             name=f"assembly_brick_{index}",
             reset_xform_properties=False,
         )
+        recorder.brick_index = index
+        recorder.phase = "approach"
         source_position, _ = brick.get_world_pose()
-        print(f"UR5e baseplate: brick {index}/3 approach", flush=True)
+        print(f"UR5e baseplate: brick {index}/{total} approach", flush=True)
         for height in (grasp_z + 0.10, grasp_z):
             target_grasp[:3, 3] = (*source_position[:2], height)
             target_grasp[:3, 3] -= target_grasp[:3, 2] * lateral_offset
@@ -271,10 +337,12 @@ async def main(
                 robot_base,
                 rmpflow,
                 policy,
+                recorder,
                 target_tool[:3, 3],
                 rot_matrices_to_quats(target_tool[:3, :3]),
             )
-        print(f"UR5e baseplate: brick {index}/3 grasp", flush=True)
+        print(f"UR5e baseplate: brick {index}/{total} grasp", flush=True)
+        recorder.phase = "grasp"
         await set_gripper(world, gripper, joint, -0.45)
         bounds_cache = UsdGeom.BBoxCache(
             Usd.TimeCode.Default(),
@@ -294,13 +362,15 @@ async def main(
             np.linalg.norm(np.mean(finger_centers, axis=0)[:2] - brick_position[:2])
         )
         print(
-            f"UR5e baseplate: brick {index}/3 grasp center error={center_error:.4f} m",
+            f"UR5e baseplate: brick {index}/{total} "
+            f"grasp center error={center_error:.4f} m",
             flush=True,
         )
         if center_error > 0.003:
             raise RuntimeError(
                 f"Brick {index} grasp is off center by {center_error:.4f} m"
             )
+        recorder.phase = "lift"
         target_grasp[2, 3] = grasp_z + 0.10
         target_tool = target_grasp @ np.linalg.inv(tool_to_grasp)
         await move_to(
@@ -309,6 +379,7 @@ async def main(
             robot_base,
             rmpflow,
             policy,
+            recorder,
             target_tool[:3, 3],
             rot_matrices_to_quats(target_tool[:3, :3]),
         )
@@ -338,17 +409,19 @@ async def main(
         )
         target_orientation = rot_matrices_to_quats(target_tool[:3, :3])
         print(
-            f"UR5e baseplate: brick {index}/3 transfer support={support_path} "
+            f"UR5e baseplate: brick {index}/{total} transfer support={support_path} "
             f"offset={offset} "
             f"tool_target_m={target_tool[:3, 3].tolist()}",
             flush=True,
         )
+        recorder.phase = "transfer"
         await move_to(
             world,
             robot,
             robot_base,
             rmpflow,
             policy,
+            recorder,
             target_tool[:3, 3] + np.array([0.0, 0.0, 0.10]),
             target_orientation,
         )
@@ -359,10 +432,37 @@ async def main(
             robot_base,
             rmpflow,
             policy,
+            recorder,
             prepress_position,
             target_orientation,
         )
-        print(f"UR5e baseplate: brick {index}/3 press", flush=True)
+        recorder.phase = "alignment"
+        # Correct the held brick's world XY error while still above the support.
+        support_position, support_orientation = support.get_world_pose()
+        brick_position, _ = brick.get_world_pose()
+        desired_brick_position = support_position + quats_to_rot_matrices(
+            np.asarray(support_orientation)
+        ) @ np.asarray(relative_position)
+        correction = desired_brick_position[:2] - brick_position[:2]
+        target_tool[:2, 3] += correction
+        prepress_position[:2] += correction
+        print(
+            f"UR5e baseplate: brick {index}/{total} prepress XY correction "
+            f"m={correction.tolist()}",
+            flush=True,
+        )
+        await move_to(
+            world,
+            robot,
+            robot_base,
+            rmpflow,
+            policy,
+            recorder,
+            prepress_position,
+            target_orientation,
+        )
+        print(f"UR5e baseplate: brick {index}/{total} press", flush=True)
+        recorder.phase = "press"
         press_position = target_tool[:3, 3] - np.array([0.0, 0.0, 0.0005])
         elapsed = 0.0
         held = 0.0
@@ -375,6 +475,10 @@ async def main(
             target_position = prepress_position + descent * (
                 press_position - prepress_position
             )
+            recorder.tool_target = {
+                "position_m": target_position.tolist(),
+                "orientation_wxyz": target_orientation.tolist(),
+            }
             base_position, base_orientation = robot_base.get_world_pose()
             rmpflow.set_robot_base_pose(base_position, base_orientation)
             rmpflow.set_end_effector_target(target_position, target_orientation)
@@ -413,18 +517,21 @@ async def main(
                 f"debug={diagnostics[:3]}"
             )
         print(
-            f"UR5e baseplate: brick {index}/3 connected "
+            f"UR5e baseplate: brick {index}/{total} connected "
             f"offset={connection.offset} yaw={connection.yaw}; "
             f"press held={held:.2f} s; peak contact force={peak_force:.2f} N",
             flush=True,
         )
+        recorder.phase = "release"
         await set_gripper(world, gripper, joint, 1.0)
+        recorder.phase = "retreat"
         await move_to(
             world,
             robot,
             robot_base,
             rmpflow,
             policy,
+            recorder,
             target_tool[:3, 3] + np.array([0.0, 0.0, 0.10]),
             target_orientation,
         )
@@ -447,7 +554,10 @@ async def main(
                     f"yaw {placed.yaw}; "
                     f"expected {expected}, yaw 0"
                 )
-        print(f"UR5e baseplate: {index}/3 bricks secured", flush=True)
+        print(f"UR5e baseplate: {index}/{total} bricks secured", flush=True)
 
-    print("UR5e baseplate: assembly succeeded; all 3 bricks connected", flush=True)
+    print(
+        f"UR5e baseplate: assembly succeeded; all {total} bricks connected", flush=True
+    )
+    recorder.finish("completed")
     await world.pause_async()
