@@ -123,13 +123,14 @@ function drawChart() {
   const data = currentRun.chart || [];
   const signal = byId("signal").value;
   const colors = [
-    "#18815e",
-    "#e0984c",
-    "#667cdb",
-    "#ca6b79",
-    "#60aeb3",
-    "#9b82c0",
+    "#111111",
+    "#333333",
+    "#555555",
+    "#222222",
+    "#444444",
+    "#555555",
   ];
+  const patterns = [[], [9, 4], [2, 3], [10, 3, 2, 3], [5, 3, 1, 3], [1, 3]];
   let names;
   let values;
   let unit;
@@ -175,7 +176,7 @@ function drawChart() {
   byId("chart-legend").innerHTML = names
     .map(
       (name, index) =>
-        `<span class="legend-item"><i class="legend-swatch" style="background:${colors[index % colors.length]}"></i>${escapeText(name.replaceAll("_joint", "").replaceAll("_", " "))}</span>`,
+        `<span class="legend-item"><svg class="legend-swatch" viewBox="0 0 28 10" aria-hidden="true"><line x1="1" y1="5" x2="27" y2="5" stroke="${colors[index % colors.length]}" stroke-width="2" stroke-dasharray="${patterns[index % patterns.length].join(" ")}"/></svg>${escapeText(name.replaceAll("_joint", "").replaceAll("_", " "))}</span>`,
     )
     .join("");
   const note =
@@ -220,26 +221,26 @@ function drawChart() {
       : (maxValue - minValue) * 0.08;
   minValue -= padding;
   maxValue += padding;
-  context.font = "10px system-ui, sans-serif";
+  context.font = "12px system-ui, sans-serif";
   context.textAlign = "right";
   context.textBaseline = "middle";
   for (let i = 0; i <= 4; i += 1) {
     const y = top + (plotHeight * i) / 4;
     const value = maxValue - ((maxValue - minValue) * i) / 4;
     context.beginPath();
-    context.strokeStyle = "#edf2ee";
+    context.strokeStyle = "#e3e3e3";
     context.lineWidth = 1;
     context.moveTo(left, y);
     context.lineTo(left + plotWidth, y);
     context.stroke();
-    context.fillStyle = "#91a197";
+    context.fillStyle = "#555555";
     context.fillText(`${value.toFixed(2)}`, left - 7, y);
   }
   context.textAlign = "center";
   context.textBaseline = "top";
   for (let i = 0; i <= 4; i += 1) {
     const x = left + (plotWidth * i) / 4;
-    context.fillStyle = "#91a197";
+    context.fillStyle = "#555555";
     context.fillText(
       (minTime + ((maxTime - minTime) * i) / 4).toFixed(0),
       x,
@@ -249,7 +250,8 @@ function drawChart() {
   names.forEach((_, index) => {
     context.beginPath();
     context.strokeStyle = colors[index % colors.length];
-    context.lineWidth = 1.5;
+    context.lineWidth = 1.8;
+    context.setLineDash(patterns[index % patterns.length]);
     let drawing = false;
     for (const point of series) {
       const value = point.y[index];
@@ -267,7 +269,8 @@ function drawChart() {
     }
     context.stroke();
   });
-  context.fillStyle = "#82958a";
+  context.setLineDash([]);
+  context.fillStyle = "#555555";
   context.textAlign = "left";
   context.textBaseline = "top";
   context.fillText(unit, 3, 0);
