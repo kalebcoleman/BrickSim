@@ -6,10 +6,13 @@ from gzip import open as open_gzip
 from hashlib import sha256
 from http.client import HTTPConnection
 from json import dumps, loads
+from os import fsdecode
 from pathlib import Path
+from sys import getrecursionlimit
 from tempfile import TemporaryDirectory
 from threading import Thread
 from unittest import TestCase, main
+from unittest.mock import patch
 
 from server import DashboardServer, RunCollection
 
@@ -246,6 +249,205 @@ class ResultsViewerTests(TestCase):
         self.assertEqual(len(runs), 1)
         self.assertEqual(runs[0]["status"], "completed")
         self.assertIn("different run", runs[0]["video_label"])
+
+    def test_malformed_records_do_not_disable_other_runs(self) -> None:
+        """Malformed JSON records and nested fields are isolated in the API."""
+        depth = max(10000, getrecursionlimit() + 100)
+        deep = "[" * depth + "0" + "]" * depth
+        records = {
+            "null": "null",
+            "array": "[]",
+            "missing_kind": "{}",
+            "invalid_kind": dumps({"kind": []}),
+            "robot": dumps({"kind": "sample", "robot": []}),
+            "robot_vector": dumps({"kind": "sample", "robot": {"position_rad": 1}}),
+            "gripper_vector": dumps({"kind": "sample", "gripper": {"position_rad": 1}}),
+            "tool_pose": dumps({"kind": "sample", "tool_pose_world": []}),
+            "tool_target": dumps({"kind": "sample", "tool_target_world": [1]}),
+            "placements": dumps({"kind": "sample", "placements": [None]}),
+            "connected": dumps(
+                {"kind": "sample", "placements": [{"connected": "false"}]}
+            ),
+            "contacts": dumps({"kind": "sample", "simulation_contacts": [None]}),
+            "settings": dumps({"kind": "sample", "assembly_settings": []}),
+            "assembly_enabled": dumps(
+                {"kind": "sample", "assembly_settings": {"enabled": "false"}}
+            ),
+            "breakage_enabled": dumps(
+                {"kind": "sample", "breakage_settings": {"enabled": "false"}}
+            ),
+            "phase": dumps({"kind": "sample", "phase": []}),
+            "brick_index": dumps({"kind": "sample", "brick_index": "1"}),
+            "boolean_time": dumps({"kind": "sample", "simulation_elapsed_s": True}),
+            "end_status": dumps({"kind": "end", "status": []}),
+            "overflow": '{"kind":"sample","simulation_elapsed_s":1e999}',
+            "large_force": dumps(
+                {
+                    "kind": "sample",
+                    "simulation_contacts": [{"projected_force_n": 10**400}],
+                }
+            ),
+            "deep": '{"kind":"sample","extra":' + deep + "}",
+        }
+        filenames = []
+        for index, (name, record) in enumerate(records.items()):
+            metadata = dict(self.records[0])
+            metadata.update(
+                experiment="stack", created_utc=f"2026-11-01T00:00:{index:02d}+00:00"
+            )
+            archive = self.outputs / f"malformed-{name}.jsonl"
+            archive.write_text(dumps(metadata) + "\n" + record + "\n")
+            filenames.append(archive.name)
+
+        server = DashboardServer(0, self.collection)
+        worker = Thread(target=server.serve_forever, daemon=True)
+        worker.start()
+        connection = HTTPConnection("127.0.0.1", server.server_port, timeout=5)
+        try:
+            connection.request("GET", "/api/runs")
+            response = connection.getresponse()
+            self.assertEqual(response.status, 200)
+            statuses = {
+                run["filename"]: run["status"] for run in loads(response.read())
+            }
+            self.assertEqual(statuses[self.raw.name], "completed")
+            for filename in filenames:
+                with self.subTest(filename=filename):
+                    self.assertEqual(statuses[filename], "invalid")
+        finally:
+            connection.close()
+            server.shutdown()
+            worker.join(timeout=5)
+            server.server_close()
+
+    def test_malformed_metadata_is_skipped_for_discovery_and_video(self) -> None:
+        """Bad metadata cannot hide valid runs or imply a matching video."""
+        depth = max(10000, getrecursionlimit() + 100)
+        deep = "[" * depth + "0" + "]" * depth
+        metadata_records = [
+            "null",
+            "[]",
+            dumps({"kind": "metadata", "experiment": []}),
+            dumps({"kind": "metadata", "created_utc": 123}),
+            dumps({"kind": "metadata", "robot_joint_names": [None]}),
+            dumps({"kind": "metadata", "gripper_joint_names": {}}),
+            '{"kind":"metadata","config":{"value":1e999}}',
+            '{"kind":"metadata","extra":' + deep + "}",
+        ]
+        for index, metadata in enumerate(metadata_records):
+            (self.outputs / f"invalid-metadata-{index}.jsonl").write_text(
+                metadata + "\n"
+            )
+        evidence = self.evidence / "ur5e-stack-four-run.jsonl.gz"
+        with open_gzip(evidence, "wt") as stream:
+            stream.write("null\n")
+
+        missing_time = self.outputs / "missing-time.jsonl"
+        missing_time.write_text(
+            dumps(
+                {
+                    "kind": "metadata",
+                    "experiment": "custom",
+                    "created_utc": None,
+                    "gripper_joint_names": None,
+                }
+            )
+            + "\n"
+            + dumps(self.records[1])
+            + "\n"
+            + dumps({"kind": "end", "status": "completed"})
+            + "\n"
+        )
+        runs = self.collection.refresh()
+        statuses = {run["filename"]: run["status"] for run in runs}
+        self.assertEqual(
+            statuses, {self.raw.name: "completed", missing_time.name: "completed"}
+        )
+        self.assertIn(
+            "different run",
+            next(run for run in runs if run["filename"] == self.raw.name)[
+                "video_label"
+            ],
+        )
+
+    def test_deleted_recording_does_not_disable_other_runs(self) -> None:
+        """A log removed after metadata discovery does not hide other runs."""
+        removed = self.outputs / "removed.jsonl"
+        metadata = dict(self.records[0])
+        metadata["created_utc"] = "2026-11-01T00:00:00+00:00"
+        (self.evidence / "ur5e-stack-four-run.jsonl.gz").unlink()
+        with (
+            patch.object(Path, "glob", side_effect=[[removed, self.raw], [], []]),
+            patch.object(
+                self.collection,
+                "read_metadata",
+                side_effect=[metadata, self.records[0]],
+            ),
+        ):
+            runs = self.collection.refresh()
+        self.assertEqual([run["filename"] for run in runs], [self.raw.name])
+
+    def test_symlink_loop_does_not_disable_other_runs(self) -> None:
+        """A broken symbolic-link cycle does not hide a valid recording."""
+        loop = self.outputs / "loop.jsonl"
+        loop.symlink_to(loop.name)
+        runs = self.collection.refresh()
+        self.assertEqual([run["filename"] for run in runs], [self.raw.name])
+
+    def test_non_utf8_filename_does_not_disable_other_runs(self) -> None:
+        """A Linux filename containing non-UTF-8 bytes remains discoverable."""
+        other = self.outputs / fsdecode(b"recording-\xff.jsonl")
+        metadata = dict(self.records[0])
+        metadata["created_utc"] = "2026-11-01T00:00:00+00:00"
+        other.write_text(dumps(metadata) + "\n" + dumps(self.records[-1]) + "\n")
+        runs = self.collection.refresh()
+        self.assertEqual({run["filename"] for run in runs}, {other.name, self.raw.name})
+        dumps(runs, allow_nan=False)
+
+        server = DashboardServer(0, self.collection)
+        worker = Thread(target=server.serve_forever, daemon=True)
+        worker.start()
+        connection = HTTPConnection("127.0.0.1", server.server_port, timeout=5)
+        try:
+            run = next(run for run in runs if run["filename"] == other.name)
+            connection.request("GET", f"/download?id={run['id']}")
+            response = connection.getresponse()
+            self.assertEqual(response.status, 200)
+            self.assertEqual(response.read(), other.read_bytes())
+            self.assertIn(
+                "filename*=UTF-8''recording-%3F.jsonl",
+                response.getheader("Content-Disposition") or "",
+            )
+        finally:
+            connection.close()
+            server.shutdown()
+            worker.join(timeout=5)
+            server.server_close()
+
+    def test_download_encodes_special_filename(self) -> None:
+        """Unicode and line breaks cannot break or inject download headers."""
+        other = self.outputs / "brick-雪\r\nX-Injected: yes.jsonl"
+        metadata = dict(self.records[0])
+        metadata["created_utc"] = "2026-11-01T00:00:00+00:00"
+        other.write_text(dumps(metadata) + "\n" + dumps(self.records[-1]) + "\n")
+        runs = self.collection.refresh()
+        run = next(run for run in runs if run["filename"] == other.name)
+        server = DashboardServer(0, self.collection)
+        worker = Thread(target=server.serve_forever, daemon=True)
+        worker.start()
+        connection = HTTPConnection("127.0.0.1", server.server_port, timeout=5)
+        try:
+            connection.request("GET", f"/download?id={run['id']}")
+            response = connection.getresponse()
+            self.assertEqual(response.status, 200)
+            self.assertEqual(response.read(), other.read_bytes())
+            self.assertIsNone(response.getheader("X-Injected"))
+            self.assertIn("%0D%0A", response.getheader("Content-Disposition") or "")
+        finally:
+            connection.close()
+            server.shutdown()
+            worker.join(timeout=5)
+            server.server_close()
 
     def test_nonfinite_values_are_unavailable(self) -> None:
         """Invalid numeric measurements do not break the browser JSON response."""

@@ -8,8 +8,9 @@ from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from json import JSONDecodeError, dumps, loads
 from math import ceil, isfinite
+from os import fsencode
 from pathlib import Path
-from urllib.parse import parse_qs, urlsplit
+from urllib.parse import parse_qs, quote, urlsplit
 
 ASSETS = Path(__file__).resolve().parent
 NONFINITE_VALUES = {"NaN": None, "Infinity": None, "-Infinity": None}
@@ -79,13 +80,26 @@ class RunCollection:
             The metadata record.
 
         Raises:
-            ValueError: If the first record is not metadata.
+            ValueError: If metadata is not an object or has invalid fields.
         """
         opener = open_gzip if path.suffix == ".gz" else open
         with opener(path, "rt", encoding="utf-8") as stream:
             metadata = loads(stream.readline(), parse_constant=NONFINITE_VALUES.get)
-        if metadata.get("kind") != "metadata":
+        if not isinstance(metadata, dict) or metadata.get("kind") != "metadata":
             raise ValueError(f"{path.name} does not start with metadata")
+        for field in ("experiment", "created_utc", "source"):
+            value = metadata.get(field)
+            if value is not None and not isinstance(value, str):
+                raise ValueError(f"{path.name}: metadata {field} must be a string")
+        for field in ("robot_joint_names", "gripper_joint_names"):
+            value = metadata.get(field)
+            if value is not None and (
+                not isinstance(value, list)
+                or any(not isinstance(name, str) for name in value)
+            ):
+                raise ValueError(f"{path.name}: metadata {field} must be a string list")
+        # Reject numbers that overflowed to infinity while decoding JSON.
+        dumps(metadata, allow_nan=False)
         return metadata
 
     def read_run(self, path: Path, metadata: dict) -> dict:
@@ -100,6 +114,9 @@ class RunCollection:
 
         Returns:
             Run summary with connection events and reduced chart samples.
+
+        Raises:
+            ValueError: If a decoded record has an invalid structure.
         """
         opener = open_gzip if path.suffix == ".gz" else open
         samples = []
@@ -109,7 +126,7 @@ class RunCollection:
         last = None
         status = "incomplete"
         incomplete_line = False
-        gripper_names = metadata.get("gripper_joint_names", [])
+        gripper_names = metadata.get("gripper_joint_names") or []
         gripper_index = (
             gripper_names.index("rg2_gripper_joint")
             if "rg2_gripper_joint" in gripper_names
@@ -117,7 +134,7 @@ class RunCollection:
         )
         with opener(path, "rt", encoding="utf-8") as stream:
             next(stream)
-            for line in stream:
+            for line_number, line in enumerate(stream, start=2):
                 try:
                     record = loads(line, parse_constant=NONFINITE_VALUES.get)
                 except JSONDecodeError:
@@ -125,15 +142,77 @@ class RunCollection:
                         incomplete_line = True
                         break
                     raise
-                if record.get("kind") == "end":
+                if not isinstance(record, dict):
+                    raise ValueError(
+                        f"{path.name}: line {line_number} must be an object"
+                    )
+                kind = record.get("kind")
+                if not isinstance(kind, str):
+                    raise ValueError(
+                        f"{path.name}: line {line_number} needs a string kind"
+                    )
+                if kind == "end":
                     status = record.get("status", "incomplete")
+                    if not isinstance(status, str):
+                        raise ValueError(f"{path.name}: end status must be a string")
                     continue
-                if record.get("kind") != "sample":
+                if kind != "sample":
                     continue
+                for field in (
+                    "robot",
+                    "gripper",
+                    "tool_pose_world",
+                    "assembly_settings",
+                    "breakage_settings",
+                ):
+                    if not isinstance(record.get(field, {}), dict):
+                        raise ValueError(f"{path.name}: {field} must be an object")
+                for field in ("assembly_settings", "breakage_settings"):
+                    enabled = record.get(field, {}).get("enabled")
+                    if enabled is not None and not isinstance(enabled, bool):
+                        raise ValueError(
+                            f"{path.name}: {field}.enabled must be boolean"
+                        )
+                target = record.get("tool_target_world")
+                if target is not None and not isinstance(target, dict):
+                    raise ValueError(
+                        f"{path.name}: tool_target_world must be an object or null"
+                    )
+                for field in ("placements", "simulation_contacts"):
+                    value = record.get(field, [])
+                    if not isinstance(value, list) or any(
+                        not isinstance(item, dict) for item in value
+                    ):
+                        raise ValueError(f"{path.name}: {field} must be an object list")
+                robot = record.get("robot", {})
+                gripper_data = record.get("gripper", {})
+                tool = record.get("tool_pose_world", {})
+                target = target or {}
+                for name, value in (
+                    ("robot.position_rad", robot.get("position_rad")),
+                    ("robot.command_position_rad", robot.get("command_position_rad")),
+                    ("robot.velocity_rad_s", robot.get("velocity_rad_s")),
+                    ("robot.effort_nm", robot.get("effort_nm")),
+                    ("gripper.position_rad", gripper_data.get("position_rad")),
+                    ("tool_pose_world.position_m", tool.get("position_m")),
+                    ("tool_target_world.position_m", target.get("position_m")),
+                ):
+                    if value is not None and not isinstance(value, list):
+                        raise ValueError(f"{path.name}: {name} must be a list or null")
                 last = record
                 time_s = record.get("simulation_elapsed_s", 0.0)
+                if time_s is not None and (
+                    isinstance(time_s, bool) or not isinstance(time_s, (int, float))
+                ):
+                    raise ValueError(
+                        f"{path.name}: simulation_elapsed_s must be a number"
+                    )
                 phase = record.get("phase", "unknown")
                 brick = record.get("brick_index", 0)
+                if not isinstance(phase, str):
+                    raise ValueError(f"{path.name}: phase must be a string")
+                if isinstance(brick, bool) or not isinstance(brick, int):
+                    raise ValueError(f"{path.name}: brick_index must be an integer")
                 if not phases or (phases[-1]["phase"], phases[-1]["brick"]) != (
                     phase,
                     brick,
@@ -143,6 +222,8 @@ class RunCollection:
                 for index, placement in enumerate(placements):
                     before = previous[index] if index < len(previous) else None
                     connected = placement.get("connected", False)
+                    if not isinstance(connected, bool):
+                        raise ValueError(f"{path.name}: connected must be boolean")
                     if connected and (before is None or not before.get("connected")):
                         error = before.get("position_error_m") if before else None
                         events.append(
@@ -171,10 +252,7 @@ class RunCollection:
                     if isinstance(contact.get("projected_force_n"), (int, float))
                     and isfinite(contact["projected_force_n"])
                 ]
-                gripper_data = record.get("gripper", {})
-                gripper = gripper_data.get("position_rad", [])
-                robot = record.get("robot", {})
-                target = record.get("tool_target_world") or {}
+                gripper = gripper_data.get("position_rad") or []
                 samples.append(
                     {
                         "t": time_s,
@@ -182,8 +260,7 @@ class RunCollection:
                         "joint_commands": robot.get("command_position_rad") or [],
                         "joint_velocities": robot.get("velocity_rad_s") or [],
                         "joint_efforts": robot.get("effort_nm") or [],
-                        "tool": record.get("tool_pose_world", {}).get("position_m")
-                        or [],
+                        "tool": tool.get("position_m") or [],
                         "tool_target": target.get("position_m") or [],
                         "gripper": (
                             gripper[gripper_index]
@@ -259,7 +336,7 @@ class RunCollection:
                         trace.append([samples[index]["t"], value])
                 traces.append(trace)
             chart_series[field] = traces
-        return {
+        summary = {
             "metadata": metadata,
             "status": status,
             "samples": len(samples),
@@ -274,6 +351,9 @@ class RunCollection:
             "chart_series": chart_series,
             "chart_bucket_size": bucket_size,
         }
+        # Validate the final payload before it can affect an API response.
+        dumps(summary, allow_nan=False)
+        return summary
 
     def refresh(self) -> list[dict]:
         """Discover new recordings and refresh summaries for changed files.
@@ -287,11 +367,22 @@ class RunCollection:
         candidates += list(self.evidence.glob("*-run.jsonl.gz"))
         selected = {}
         for path in candidates:
-            if not path.resolve().is_relative_to(self.root):
+            try:
+                resolved = path.resolve()
+            except (OSError, RuntimeError):
+                continue
+            if not resolved.is_relative_to(self.root):
                 continue
             try:
                 metadata = self.read_metadata(path)
-            except (EOFError, OSError, ValueError, JSONDecodeError, zlib.error):
+            except (
+                EOFError,
+                OSError,
+                ValueError,
+                JSONDecodeError,
+                zlib.error,
+                RecursionError,
+            ):
                 continue
             identity = (metadata.get("experiment"), metadata.get("created_utc"))
             if None in identity:
@@ -303,8 +394,11 @@ class RunCollection:
         videos = {}
         posters = {}
         for identity, (path, metadata) in selected.items():
-            run_id = sha256(str(path).encode()).hexdigest()[:20]
-            stat = path.stat()
+            run_id = sha256(fsencode(path)).hexdigest()[:20]
+            try:
+                stat = path.stat()
+            except OSError:
+                continue
             version = (stat.st_mtime_ns, stat.st_size)
             cached = self.cache.get(path)
             if cached is None or cached[0] != version:
@@ -316,6 +410,8 @@ class RunCollection:
                     ValueError,
                     JSONDecodeError,
                     zlib.error,
+                    OverflowError,
+                    RecursionError,
                 ) as exc:
                     summary = {
                         "metadata": metadata,
@@ -374,7 +470,14 @@ class RunCollection:
                             evidence_meta.get("experiment"),
                             evidence_meta.get("created_utc"),
                         )
-                    except (EOFError, OSError, ValueError, JSONDecodeError, zlib.error):
+                    except (
+                        EOFError,
+                        OSError,
+                        ValueError,
+                        JSONDecodeError,
+                        zlib.error,
+                        RecursionError,
+                    ):
                         pass
                 if same_run and exact:
                     video = video_path
@@ -420,7 +523,7 @@ class RunCollection:
         self.posters = posters
         return sorted(
             runs.values(),
-            key=lambda run: run["metadata"].get("created_utc", ""),
+            key=lambda run: run["metadata"].get("created_utc") or "",
             reverse=True,
         )
 
@@ -543,8 +646,10 @@ class DashboardHandler(BaseHTTPRequestHandler):
         if range_header:
             self.send_header("Content-Range", f"bytes {start}-{end}/{size}")
         if route.path == "/download":
+            encoded_filename = quote(path.name, safe="", errors="replace")
             self.send_header(
-                "Content-Disposition", f'attachment; filename="{path.name}"'
+                "Content-Disposition",
+                f"attachment; filename*=UTF-8''{encoded_filename}",
             )
         self.end_headers()
         try:

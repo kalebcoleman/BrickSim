@@ -18,9 +18,9 @@ The selected root may contain live or archived JSON Lines files under
 `experiments/ur5e_lego/docs/evidence/`. Matching plain and compressed logs are
 listed once. A new video can be placed beside its log with the same base name,
 for example `example.jsonl` and `example.mp4`. Press **Refresh runs** after new
-data is written. An unfinished recording is marked incomplete. A damaged gzip
-is marked invalid if its metadata is readable; otherwise it is skipped. Other
-recordings remain available. The viewer does not control or modify the
+data is written. An unfinished recording is marked incomplete. A recording
+with unreadable metadata is skipped; malformed contents are marked invalid.
+Other recordings remain available. The viewer does not control or modify the
 simulator or files.
 
 The run list, phase history, connection state, last pre-connection alignment,
@@ -44,9 +44,14 @@ positions are meters, and force is in newtons. The viewer converts placement
 errors and tolerances to millimeters. The Z value is the gap from the seated
 pose, not a physical force or a hardware accuracy measurement. USD poses may
 update at the render rate; contact debug data is available only when recorded.
-Non-finite numeric values are shown as unavailable.
+NaN and Infinity tokens are shown as unavailable. Numbers that overflow while
+decoding or processing cause the recording to be skipped or marked invalid.
 The recorded video and data do not establish physical robot performance.
 
 Run the focused checks from the repository root:
 
     python3 -m unittest discover -s experiments/ur5e_dashboard -p 'test_*.py'
+
+To also check browser label formatting, use Node.js:
+
+    node --test experiments/ur5e_dashboard/test_app.cjs

@@ -31,14 +31,15 @@ function isControlledRejection(name, createdUtc) {
 function experimentName(name, createdUtc) {
   if (isControlledRejection(name, createdUtc))
     return "Controlled rejection test";
-  return (
-    {
-      stack_four: "Four-brick stack",
-      stack: "Three-brick stack",
-      baseplate: "Baseplate assembly",
-      transfer: "Brick transfer",
-    }[name] ?? String(name || "Unnamed experiment").replaceAll("_", " ")
-  );
+  const names = {
+    stack_four: "Four-brick stack",
+    stack: "Three-brick stack",
+    baseplate: "Baseplate assembly",
+    transfer: "Brick transfer",
+  };
+  return Object.hasOwn(names, name)
+    ? names[name]
+    : String(name || "Unnamed experiment").replaceAll("_", " ");
 }
 
 /** Format recorded simulation seconds as minutes and seconds. */
@@ -55,15 +56,16 @@ function formatNumber(value, digits = 2) {
 
 /** Describe a recording's actual end record, including unfinished runs. */
 function describeStatus(status) {
-  return (
-    {
-      completed: ["Completed", "completed"],
-      stopped: ["Stopped", "other"],
-      interrupted_or_failed: ["Interrupted / failed", "other"],
-      incomplete: ["Incomplete", "other"],
-      invalid: ["Invalid log", "invalid"],
-    }[status] ?? [String(status || "Unknown"), "other"]
-  );
+  const statuses = {
+    completed: ["Completed", "completed"],
+    stopped: ["Stopped", "other"],
+    interrupted_or_failed: ["Interrupted / failed", "other"],
+    incomplete: ["Incomplete", "other"],
+    invalid: ["Invalid log", "invalid"],
+  };
+  return Object.hasOwn(statuses, status)
+    ? statuses[status]
+    : [String(status || "Unknown"), "other"];
 }
 
 /** Display a timestamp in the viewer's local time zone. */
