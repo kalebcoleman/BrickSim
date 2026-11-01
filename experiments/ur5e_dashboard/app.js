@@ -188,18 +188,50 @@ function drawChart() {
         `<span class="legend-item"><svg class="legend-swatch" viewBox="0 0 28 10" aria-hidden="true"><line x1="1" y1="5" x2="27" y2="5" stroke="${colors[index % colors.length]}" stroke-width="2" stroke-dasharray="${patterns[index % patterns.length].join(" ")}"/></svg>${escapeText(name.replaceAll("_joint", "").replaceAll("_", " "))}</span>`,
     )
     .join("");
-  const note =
+  byId("chart-unit").textContent = `Value (${unit})`;
+  const peakData = currentRun.chart_series?.[signal];
+  const traces = Array.isArray(peakData)
+    ? names.map((_, index) => peakData[index] || [])
+    : names.map((_, index) =>
+        data.map((sample) => [sample.t, values(sample)[index]]),
+      );
+  const forceNote =
     signal === "force"
-      ? "Peak compression in recorded contact debug data; gaps mean no contact debug reading. "
+      ? "Contact debug readings are simulated; gaps mean no reading. "
       : "";
-  byId("chart-note").textContent =
-    `${note}Displayed every ${currentRun.chart_stride || 1} sample(s); events use every sample.`;
-  const series = data.map((sample) => ({ t: sample.t, y: values(sample) }));
-  const finite = series.flatMap((point) => point.y.filter(Number.isFinite));
-  const empty =
-    !finite.length || !series.some((point) => Number.isFinite(point.t));
+  const samplingNote = currentRun.chart_series
+    ? `Min and max preserved in windows of up to ${currentRun.chart_bucket_size || 1} samples.`
+    : "Restart the results viewer to show short peaks in the graphs.";
+  byId("chart-note").textContent = forceNote + samplingNote;
+
+  let minTime = 0;
+  let maxTime = Number.isFinite(currentRun.duration_s)
+    ? currentRun.duration_s
+    : 0;
+  let minValue = Infinity;
+  let maxValue = -Infinity;
+  for (const trace of traces) {
+    for (const [time, value] of trace) {
+      if (!Number.isFinite(time) || !Number.isFinite(value)) continue;
+      minTime = Math.min(minTime, time);
+      maxTime = Math.max(maxTime, time);
+      minValue = Math.min(minValue, value);
+      maxValue = Math.max(maxValue, value);
+    }
+  }
+  const empty = !Number.isFinite(minValue) || !Number.isFinite(maxValue);
   byId("chart-empty").hidden = !empty;
+  const rangeFormatter = new Intl.NumberFormat(undefined, {
+    maximumSignificantDigits: 5,
+  });
+  byId("chart-range").textContent = empty
+    ? "No recorded values"
+    : `${currentRun.chart_series ? "Recorded" : "Displayed"} range: ${rangeFormatter.format(minValue === 0 ? 0 : minValue)} – ${rangeFormatter.format(maxValue === 0 ? 0 : maxValue)} ${unit}`;
   const canvas = byId("chart");
+  canvas.setAttribute(
+    "aria-label",
+    `${byId("signal").selectedOptions[0].textContent.trim()} in ${unit}, over simulation time`,
+  );
   const bounds = canvas.getBoundingClientRect();
   const width = Math.max(bounds.width, 100);
   const height = Math.max(bounds.height, 100);
@@ -210,32 +242,50 @@ function drawChart() {
   context.setTransform(scale, 0, 0, scale, 0, 0);
   context.clearRect(0, 0, width, height);
   if (empty) return;
-  const left = 54,
-    right = 12,
+
+  const nonnegativeForce =
+    ["force", "required_force"].includes(signal) && minValue >= 0;
+  if (minValue === maxValue) {
+    const padding = Math.max(Math.abs(minValue) * 0.1, 0.1);
+    minValue -= padding;
+    maxValue += padding;
+  }
+  if (nonnegativeForce) {
+    minValue = Math.max(0, minValue);
+  }
+  const roughStep = (maxValue - minValue) / 4;
+  const magnitude = 10 ** Math.floor(Math.log10(roughStep));
+  const fraction = roughStep / magnitude;
+  const step =
+    [1, 2, 2.5, 5, 10].find((candidate) => candidate >= fraction) * magnitude;
+  const lower = Math.floor(minValue / step) * step;
+  const upper = Math.ceil(maxValue / step) * step;
+  const tickCount = Math.max(1, Math.round((upper - lower) / step));
+  let digits = Math.max(0, -Math.floor(Math.log10(step)));
+  if (Math.abs(step * 10 ** digits - Math.round(step * 10 ** digits)) > 1e-7)
+    digits += 1;
+  const tickLabels = Array.from({ length: tickCount + 1 }, (_, index) => {
+    const value = upper - index * step;
+    const normalized = Math.abs(value) < step * 1e-8 ? 0 : value;
+    return Math.abs(normalized) >= 1e8 || step < 1e-6
+      ? normalized.toExponential(2)
+      : normalized.toFixed(Math.min(digits, 6));
+  });
+  context.font = "12px system-ui, sans-serif";
+  const left =
+    Math.ceil(
+      Math.max(...tickLabels.map((label) => context.measureText(label).width)),
+    ) + 14;
+  const right = 24,
     top = 10,
     bottom = 26;
   const plotWidth = Math.max(1, width - left - right);
   const plotHeight = Math.max(1, height - top - bottom);
-  const minTime = Math.min(
-    ...series.map((point) => (Number.isFinite(point.t) ? point.t : Infinity)),
-  );
-  const maxTime = Math.max(
-    ...series.map((point) => (Number.isFinite(point.t) ? point.t : -Infinity)),
-  );
-  let minValue = Math.min(...finite),
-    maxValue = Math.max(...finite);
-  const padding =
-    maxValue === minValue
-      ? Math.max(Math.abs(maxValue) * 0.1, 0.1)
-      : (maxValue - minValue) * 0.08;
-  minValue -= padding;
-  maxValue += padding;
-  context.font = "12px system-ui, sans-serif";
+  const span = Math.max(maxTime - minTime, 1e-9);
   context.textAlign = "right";
   context.textBaseline = "middle";
-  for (let i = 0; i <= 4; i += 1) {
-    const y = top + (plotHeight * i) / 4;
-    const value = maxValue - ((maxValue - minValue) * i) / 4;
+  tickLabels.forEach((label, index) => {
+    const y = top + (plotHeight * index) / tickCount;
     context.beginPath();
     context.strokeStyle = "#e3e3e3";
     context.lineWidth = 1;
@@ -243,46 +293,59 @@ function drawChart() {
     context.lineTo(left + plotWidth, y);
     context.stroke();
     context.fillStyle = "#555555";
-    context.fillText(`${value.toFixed(2)}`, left - 7, y);
-  }
+    context.fillText(label, left - 8, y);
+  });
   context.textAlign = "center";
   context.textBaseline = "top";
-  for (let i = 0; i <= 4; i += 1) {
-    const x = left + (plotWidth * i) / 4;
+  const timeDigits = span < 4 ? 2 : span < 40 ? 1 : 0;
+  for (let index = 0; index <= 4; index += 1) {
+    const x = left + (plotWidth * index) / 4;
     context.fillStyle = "#555555";
     context.fillText(
-      (minTime + ((maxTime - minTime) * i) / 4).toFixed(0),
+      (minTime + (span * index) / 4).toFixed(timeDigits),
       x,
       height - 17,
     );
   }
-  names.forEach((_, index) => {
+  traces.forEach((trace, index) => {
     context.beginPath();
     context.strokeStyle = colors[index % colors.length];
     context.lineWidth = 1.8;
     context.setLineDash(patterns[index % patterns.length]);
     let drawing = false;
-    for (const point of series) {
-      const value = point.y[index];
-      if (!Number.isFinite(point.t) || !Number.isFinite(value)) {
+    let previousY = 0;
+    for (const [time, value] of trace) {
+      if (!Number.isFinite(time) || !Number.isFinite(value)) {
         drawing = false;
         continue;
       }
-      const x =
-        left +
-        ((point.t - minTime) / Math.max(maxTime - minTime, 1)) * plotWidth;
-      const y = top + ((maxValue - value) / (maxValue - minValue)) * plotHeight;
-      if (drawing) context.lineTo(x, y);
-      else context.moveTo(x, y);
+      const x = left + ((time - minTime) / span) * plotWidth;
+      const y = top + ((upper - value) / (upper - lower)) * plotHeight;
+      if (drawing) {
+        if (signal === "required_force") context.lineTo(x, previousY);
+        context.lineTo(x, y);
+      } else context.moveTo(x, y);
       drawing = true;
+      previousY = y;
     }
     context.stroke();
+    if (signal === "force") {
+      context.setLineDash([]);
+      context.fillStyle = colors[index % colors.length];
+      trace.forEach(([time, value], pointIndex) => {
+        if (!Number.isFinite(time) || !Number.isFinite(value)) return;
+        const previous = trace[pointIndex - 1]?.[1];
+        const next = trace[pointIndex + 1]?.[1];
+        if (Number.isFinite(previous) || Number.isFinite(next)) return;
+        const x = left + ((time - minTime) / span) * plotWidth;
+        const y = top + ((upper - value) / (upper - lower)) * plotHeight;
+        context.beginPath();
+        context.arc(x, y, 2, 0, Math.PI * 2);
+        context.fill();
+      });
+    }
   });
   context.setLineDash([]);
-  context.fillStyle = "#555555";
-  context.textAlign = "left";
-  context.textBaseline = "top";
-  context.fillText(unit, 3, 0);
 }
 
 /** Load the selected recording, ignoring responses superseded by another selection. */

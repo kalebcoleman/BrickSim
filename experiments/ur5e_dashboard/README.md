@@ -22,8 +22,9 @@ data is written. An unfinished recording is marked incomplete; the viewer does
 not control or modify the simulator or files.
 
 The run list, phase history, connection state, last pre-connection alignment,
-settings, and signal plots come from the recorded samples. The plots use a
-reduced set of samples for display; phase and connection events are computed
+settings, and signal plots come from the recorded samples. The plots preserve
+the minimum and maximum in each display window, along with missing-data gaps;
+intermediate values can be reduced. Phase and connection events are computed
 from every recorded sample. Download the source log for full-resolution data.
 The recorded elapsed time labels the end of the physics step; samples precede
 that step, so subtract `physics_dt_s` for the sample time.

@@ -693,6 +693,19 @@ h2 {
   height: 10px;
   flex: none;
 }
+.chart-axis-heading {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 4px 12px;
+  margin: 5px 0 2px;
+}
+.chart-unit,
+.chart-range {
+  color: #555555;
+  font-size: 12px;
+  font-weight: 600;
+}
 .chart-wrap {
   height: 220px;
   position: relative;
@@ -712,6 +725,7 @@ h2 {
 }
 .chart-footer {
   display: flex;
+  flex-wrap: wrap;
   justify-content: space-between;
   gap: 10px;
   color: #555555;

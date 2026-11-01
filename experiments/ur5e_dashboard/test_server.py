@@ -141,6 +141,27 @@ class ResultsViewerTests(TestCase):
         self.assertIsNone(run["chart"][0]["joints"][0])
         dumps(run, allow_nan=False)
 
+    def test_chart_preserves_brief_peaks_and_contact_gaps(self) -> None:
+        """A short force and effort spike remains visible between sampled points."""
+        with self.raw.open("w") as stream:
+            stream.write(dumps(self.records[0]) + "\n")
+            for index in range(2000):
+                sample = dict(self.records[1])
+                sample["simulation_elapsed_s"] = index / 120
+                sample["robot"] = {"effort_nm": [123.0 if index == 5 else 0.0]}
+                sample["simulation_contacts"] = (
+                    [{"projected_force_n": -9.0}] if index == 5 else []
+                )
+                stream.write(dumps(sample) + "\n")
+            stream.write(dumps({"kind": "end", "status": "completed"}) + "\n")
+        run = self.collection.refresh()[0]
+        self.assertFalse(any(sample["force"] == 9.0 for sample in run["chart"]))
+        force = run["chart_series"]["force"][0]
+        self.assertIn([5 / 120, 9.0], force)
+        self.assertTrue(any(value is None for _, value in force))
+        effort = run["chart_series"]["joint_efforts"][0]
+        self.assertIn([5 / 120, 123.0], effort)
+
     def test_new_compressed_run_can_use_a_matching_video(self) -> None:
         """A new compressed output discovers its matching named video."""
         metadata = dict(self.records[0])

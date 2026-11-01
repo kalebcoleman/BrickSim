@@ -177,12 +177,13 @@ class RunCollection:
                 samples.append(
                     {
                         "t": time_s,
-                        "joints": robot.get("position_rad", []),
+                        "joints": robot.get("position_rad") or [],
                         "joint_commands": robot.get("command_position_rad") or [],
-                        "joint_velocities": robot.get("velocity_rad_s", []),
-                        "joint_efforts": robot.get("effort_nm", []),
-                        "tool": record.get("tool_pose_world", {}).get("position_m", []),
-                        "tool_target": target.get("position_m", []),
+                        "joint_velocities": robot.get("velocity_rad_s") or [],
+                        "joint_efforts": robot.get("effort_nm") or [],
+                        "tool": record.get("tool_pose_world", {}).get("position_m")
+                        or [],
+                        "tool_target": target.get("position_m") or [],
                         "gripper": (
                             gripper[gripper_index]
                             if gripper and gripper_index < len(gripper)
@@ -201,6 +202,62 @@ class RunCollection:
         chart = samples[::stride]
         if samples and chart[-1] is not samples[-1]:
             chart.append(samples[-1])
+        # Keep each signal's local extrema and missing-data boundaries. Uniform
+        # sampling alone can omit brief contact forces or joint-effort peaks.
+        bucket_size = max(1, ceil(len(samples) / 400))
+        chart_series = {}
+        vector_fields = (
+            "joints",
+            "joint_commands",
+            "joint_velocities",
+            "joint_efforts",
+            "tool",
+            "tool_target",
+        )
+        for field in (
+            *vector_fields,
+            "gripper",
+            "gripper_target",
+            "force",
+            "required_force",
+        ):
+            count = (
+                max((len(sample[field]) for sample in samples), default=0)
+                if field in vector_fields
+                else 1
+            )
+            traces = []
+            for component in range(count):
+                values = []
+                for sample in samples:
+                    raw = sample[field]
+                    if field in vector_fields:
+                        raw = raw[component] if component < len(raw) else None
+                    values.append(
+                        raw if isinstance(raw, (float, int)) and isfinite(raw) else None
+                    )
+                trace = []
+                for start in range(0, len(samples), bucket_size):
+                    end = min(start + bucket_size, len(samples))
+                    indexes = {start, end - 1}
+                    present = [
+                        index
+                        for index in range(start, end)
+                        if values[index] is not None
+                    ]
+                    if present:
+                        indexes.add(min(present, key=lambda index: values[index]))
+                        indexes.add(max(present, key=lambda index: values[index]))
+                    for index in range(start + 1, end):
+                        if (values[index] is None) != (values[index - 1] is None):
+                            indexes.update((index - 1, index))
+                    for index in sorted(indexes):
+                        value = values[index]
+                        if value is None and (not trace or trace[-1][1] is None):
+                            continue
+                        trace.append([samples[index]["t"], value])
+                traces.append(trace)
+            chart_series[field] = traces
         return {
             "metadata": metadata,
             "status": status,
@@ -213,6 +270,8 @@ class RunCollection:
             "breakage_settings": last.get("breakage_settings", {}) if last else {},
             "chart": chart,
             "chart_stride": stride,
+            "chart_series": chart_series,
+            "chart_bucket_size": bucket_size,
         }
 
     def refresh(self) -> list[dict]:
@@ -264,6 +323,8 @@ class RunCollection:
                         "breakage_settings": {},
                         "chart": [],
                         "chart_stride": 1,
+                        "chart_series": {},
+                        "chart_bucket_size": 1,
                     }
                 self.cache[path] = (version, summary)
             else:
