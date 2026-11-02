@@ -25,9 +25,9 @@ published robot lacks; place it under `exts/ur5e-dt/assets/robot/` (git-ignored)
 The Vention bench has no public source; supply `workstation/vention.usd` in that
 folder or the cache. The gripper parts are bundled.
 
-The default MCP location in `experiments/ur5e_lego/configs/ur5e_lego.json` is
-relative to this repository and matches the original lab machine. For another
-layout, set `ISAAC_MCP_ROOT` to the MCP checkout before launching:
+The default asset checkout in `experiments/ur5e_lego/configs/ur5e_lego.json` is
+`~/Desktop/isaac-mcp-assets`. For another layout, set `ISAAC_MCP_ROOT` to the
+checkout before launching:
 
     git clone https://github.com/kalebcoleman/isaac-mcp.git /path/to/isaac-mcp
     export ISAAC_MCP_ROOT=/path/to/isaac-mcp

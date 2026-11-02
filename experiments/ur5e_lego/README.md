@@ -25,10 +25,12 @@ reported. After an intentional asset change, run it with `--record` and commit
 the hash file.
 
 The lab robot (with its `tool0` frame) and the Vention bench are not in Git.
-The experiments read assets through the `isaac-mcp` checkout at
-`~/Desktop/isaac-mcp`, or `ISAAC_MCP_ROOT` if set: the robot goes in its
-git-ignored `exts/ur5e-dt/assets/robot/`, and `vention.usd` in
-`exts/ur5e-dt/assets/workstation/` or the cache `~/.cache/ur5e-dt/assets/`.
+The experiments read assets through a second clone of `isaac-mcp` at
+`~/Desktop/isaac-mcp-assets` (`ISAAC_MCP_ROOT` overrides it), kept apart from
+the MCP server's checkout so the robot below does not change what the MCP
+twin loads. Put the robot in its git-ignored `exts/ur5e-dt/assets/robot/` and
+`vention.usd` in `exts/ur5e-dt/assets/workstation/` or the cache
+`~/.cache/ur5e-dt/assets/`.
 
 From the repository root, choose an experiment:
 
