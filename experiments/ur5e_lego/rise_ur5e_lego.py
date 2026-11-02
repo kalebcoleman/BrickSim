@@ -145,7 +145,8 @@ async def main() -> None:
         (root / "experiments/ur5e_lego/configs/ur5e_lego.json").read_text()
     )
     mcp_root = (
-        root / environ.get("ISAAC_MCP_ROOT", config["isaac_mcp_root"])
+        root
+        / Path(environ.get("ISAAC_MCP_ROOT", config["isaac_mcp_root"])).expanduser()
     ).resolve()
     resolve_asset_uri = run_path(str(mcp_root / "exts/ur5e-dt/ur5e_dt/asset_cache.py"))[
         "resolve_uri"
