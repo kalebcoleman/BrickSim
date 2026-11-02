@@ -5,8 +5,8 @@ The lab UR5e stays fixed on the workstation rail and uses the RG2 gripper to
 attempt one pick, transfer, and release. The robot, gripper, rail, and
 workstation come from the `isaac-mcp` assets; their files are not modified.
 
-The experiment requires Isaac Sim 5.1 and an `isaac-mcp` checkout containing
-`exts/ur5e-dt/assets`. The tested workstation layout is versioned here in
+The experiment requires Isaac Sim 5.1 and an `isaac-mcp` checkout of `main` at
+PR #16 or later, which provides `exts/ur5e-dt/ur5e_dt/asset_cache.py`. The tested workstation layout is versioned here in
 `experiments/ur5e_lego/assets/ur5e_workstation.usda`. It preserves the tested world and
 physics settings but omits the unused ROS graphs. An ignored checkpoint or its
 manifest is no longer required. The versioned scene's SHA-256 at validation was
@@ -16,22 +16,26 @@ It was derived from the tested local checkpoint whose SHA-256 was
 the old MCP manifest records a different checksum and is not used by this
 experiment.
 
-The experiment resolves the scene's relative asset references against the MCP
-asset directory in memory. Open the scene through the experiment so those
-references are resolved.
+The experiment resolves each relative asset reference of the scene in memory
+with the MCP's `resolve_uri`: a local file under `exts/ur5e-dt/assets`, then the
+operator cache (`UR5E_DT_ASSET_CACHE`), then NVIDIA's pinned URL. Open the scene
+through the experiment so those references are resolved. The experiment needs
+the lab-rigged `robot/ur5e.usd`, which has a `tool0` frame that NVIDIA's
+published robot lacks; place it under `exts/ur5e-dt/assets/robot/` (git-ignored).
+The Vention bench has no public source; supply `workstation/vention.usd` in that
+folder or the cache. The gripper parts are bundled.
 
-The default MCP location in `experiments/ur5e_lego/configs/ur5e_lego.json` is relative to
-this repository and matches the original lab machine. For another layout, set
-`ISAAC_MCP_ROOT` to the MCP checkout before launching. To reproduce the tested
-asset versions without changing an existing checkout, clone them separately:
+The default asset checkout in `experiments/ur5e_lego/configs/ur5e_lego.json` is
+`~/Desktop/isaac-mcp-assets`. For another layout, set `ISAAC_MCP_ROOT` to the
+checkout before launching:
 
     git clone https://github.com/kalebcoleman/isaac-mcp.git /path/to/isaac-mcp
-    git -C /path/to/isaac-mcp checkout --detach e93e06921ecef381dd62f8668c54c2137f850baa
     export ISAAC_MCP_ROOT=/path/to/isaac-mcp
 
-At that revision, the asset directory has Git tree ID
-`af27b735d00ff25c0a861c74e96a5d9f3139ab79`. Later revisions may also work, but
-asset changes can alter the simulation.
+Earlier recorded runs used an older `isaac-mcp` revision
+(`e93e06921ecef381dd62f8668c54c2137f850baa`, asset tree
+`af27b735d00ff25c0a861c74e96a5d9f3139ab79`) that bundled all assets; changed
+assets can alter the simulation.
 
 The workstation is a visual model. Its black tabletop is lower than the
 scene's invisible ground plane, so the experiment disables that plane and

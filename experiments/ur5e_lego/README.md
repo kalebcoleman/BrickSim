@@ -7,6 +7,31 @@ existing project demos and other experiments remain outside this folder.
 [Review recorded experiments](../ur5e_dashboard/README.md) in a local results
 dashboard.
 
+## Same setup on every machine
+
+`main` on the `fork` remote is the shared version. On each machine, from the
+repository root:
+
+    git pull --ff-only
+    ./scripts/download_prebuilt_native.sh
+    uv sync --locked
+    .venv/bin/python scripts/check_parity.py
+
+`check_parity.py` exits 1 and names the difference if the checkout is dirty or
+not at its upstream, an installed package differs from `uv.lock`, the native
+extension differs from its prebuilt manifest, or a lab asset differs from the
+hashes in `assets/lab_assets_sha256.json`. OS, GPU, driver and Python are only
+reported. After an intentional asset change, run it with `--record` and commit
+the hash file.
+
+The lab robot (with its `tool0` frame) and the Vention bench are not in Git.
+The experiments read assets through a second clone of `isaac-mcp` at
+`~/Desktop/isaac-mcp-assets` (`ISAAC_MCP_ROOT` overrides it), kept apart from
+the MCP server's checkout so the robot below does not change what the MCP
+twin loads. Put the robot in its git-ignored `exts/ur5e-dt/assets/robot/` and
+`vention.usd` in `exts/ur5e-dt/assets/workstation/` or the cache
+`~/.cache/ur5e-dt/assets/`.
+
 From the repository root, choose an experiment:
 
 - [Pick up and transfer one brick](docs/ur5e-lego.md):
