@@ -13,8 +13,8 @@ dashboard.
 repository root:
 
     git pull --ff-only
-    uv sync --locked
     ./scripts/download_prebuilt_native.sh
+    uv sync --locked
     .venv/bin/python scripts/check_parity.py
 
 `check_parity.py` exits 1 and names the difference if the checkout is dirty or
