@@ -42,6 +42,11 @@ From the repository root, choose an experiment:
   `./experiments/ur5e_lego/scripts/run_ur5e_stack.sh`
 - [Stack four bricks](docs/ur5e-stack-four.md):
   `./experiments/ur5e_lego/scripts/run_ur5e_stack_four.sh`
+- [Simulation test cases](docs/ur5e-cases.md):
+  `.venv/bin/python experiments/ur5e_lego/scripts/run_ur5e_cases.py`
+
+See also the [meeting brief](docs/ur5e-meeting-brief.md) and the
+[isaac-mcp 5.1 tool report](docs/isaac-mcp-5.1-tool-report.md).
 
 The guides describe the Isaac Sim 5.1 and lab asset requirements, controls,
 results, and limitations. `configs/` contains the scene and placement settings,

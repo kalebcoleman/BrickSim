@@ -132,6 +132,7 @@ svg {
   color: #c2c2c2;
 }
 .filter-row {
+  flex-wrap: wrap;
   display: flex;
   gap: 4px;
   margin: 13px 0 13px;
