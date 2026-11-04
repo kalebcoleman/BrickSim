@@ -41,4 +41,20 @@ test("custom experiment names and statuses do not collide with object properties
     runInContext('describeStatus("completed")[0]', context),
     "Completed",
   );
+  assert.equal(
+    runInContext('outcomeName("wrong_stud")', context),
+    "Connected at the wrong stud (flagged)",
+  );
+  assert.equal(
+    runInContext('predictionLabel(undefined)', context),
+    "Not in the published suite",
+  );
+  assert.equal(
+    runInContext('predictionLabel(false)', context),
+    "Differs from prediction",
+  );
+  assert.equal(
+    runInContext('runTitle({case_id: "C01", case_title: "Nominal"})', context),
+    "C01 · Nominal",
+  );
 });

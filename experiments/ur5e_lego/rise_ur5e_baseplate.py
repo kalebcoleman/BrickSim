@@ -241,6 +241,7 @@ async def main(
         if (
             event.type == int(TimelineEventType.STOP)
             and kit_runner.current_target() == target
+            and not autoplay
         ):
             recorder.finish("stopped")
             print("UR5e baseplate: resetting scene", flush=True)

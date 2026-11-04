@@ -59,9 +59,11 @@ EVIDENCE_CLASSES = {
         "closing the recorded pre-connection gap. Breakage checking is off."
     ),
     "ground_truth_corrections": (
-        "The controller reads exact simulated brick and support poses to plan the "
-        "grasp and placement, and corrects the held brick's XY before descent unless "
-        "a case disables that correction. Hardware has no such measurement."
+        "The controller reads exact simulated brick and support poses: at the grasp, "
+        "when planning placement from the held brick's true pose, and to correct the "
+        "held brick's XY before descent. Inputs can disable the last two (C09, C10, "
+        "C13), but source and support poses stay ground truth in every case. Hardware "
+        "has no such measurement."
     ),
     "other_assumptions": (
         "Fixed lab scene and rigid base at the USD pose; kinematic baseplate; RMPflow "
@@ -161,8 +163,8 @@ def main() -> None:
         },
         "evidence_classes": EVIDENCE_CLASSES,
         "limitations": LIMITATIONS,
-        "cases": [],
     }
+    results: list[dict] = []
     manifest = directory / "ur5e-cases-suite.json"
 
     for case_id in selected:
@@ -315,8 +317,8 @@ def main() -> None:
             "run_log": f"ur5e-case-{case_id}-run.jsonl.gz",
             "console_log": f"ur5e-case-{case_id}-console.txt",
         }
-        suite["cases"].append(result)
-        manifest.write_text(json.dumps(suite, indent=2) + "\n")
+        results.append(result)
+        manifest.write_text(json.dumps({**suite, "cases": results}, indent=2) + "\n")
         (directory / result["console_log"]).write_text("\n".join(console_lines) + "\n")
         if recording_match:
             with Path(recording_match.group(1)).open("rb") as source:
@@ -330,6 +332,7 @@ def main() -> None:
             flush=True,
         )
 
+    as_predicted = all(case["as_predicted"] for case in results)
     if args.publish:
         # A video beside an older log would be mislabeled as this run's recording.
         for case_id in selected:
@@ -345,12 +348,10 @@ def main() -> None:
                 for case in json.loads(published.read_text())["cases"]
                 if case["id"] not in selected
             ]
-            suite["cases"] = sorted(
-                [*kept, *suite["cases"]], key=lambda case: case["id"]
-            )
-        published.write_text(json.dumps(suite, indent=2) + "\n")
+            results = sorted([*kept, *results], key=lambda case: case["id"])
+        published.write_text(json.dumps({**suite, "cases": results}, indent=2) + "\n")
     print(f"Suite manifest: {manifest}", flush=True)
-    sys.exit(0 if all(case["as_predicted"] for case in suite["cases"]) else 1)
+    sys.exit(0 if as_predicted else 1)
 
 
 if __name__ == "__main__":

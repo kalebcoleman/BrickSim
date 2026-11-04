@@ -42,6 +42,162 @@ function experimentName(name, createdUtc) {
     : String(name || "Unnamed experiment").replaceAll("_", " ");
 }
 
+/** Return a readable case outcome without changing unknown outcomes. */
+function outcomeName(outcome) {
+  const names = {
+    connected: "Connected",
+    rejected: "Connection rejected",
+    wrong_stud: "Connected at the wrong stud (flagged)",
+    target_not_reached: "Arm target not reached",
+    grasp_off_center: "Grasp off center",
+    dropped: "Brick dropped",
+    detached: "Brick detached",
+    other_failure: "Other failure",
+    harness_failure: "Run did not finish",
+  };
+  return Object.hasOwn(names, outcome)
+    ? names[outcome]
+    : String(outcome || "Not recorded").replaceAll("_", " ");
+}
+
+/** Return the title shown for a run, preferring its test case. */
+function runTitle(run) {
+  return run.case_id
+    ? `${run.case_id} · ${run.case_title}`
+    : experimentName(run.experiment, run.created_utc);
+}
+
+/** Describe a case result: unpublished, as predicted, or differing. */
+function predictionLabel(asPredicted) {
+  if (asPredicted === true) return "As predicted";
+  if (asPredicted === false) return "Differs from prediction";
+  return "Not in the published suite";
+}
+
+/** Fill a definition list using the existing settings row style. */
+function fillRows(id, rows) {
+  byId(id).innerHTML = rows
+    .map(
+      ([key, value]) =>
+        `<div class="settings-row"><dt>${escapeText(key)}</dt><dd>${escapeText(value)}</dd></div>`,
+    )
+    .join("");
+}
+
+/** Format one case input with its unit, converted for reading. */
+function formatInput(key, value) {
+  if (key.endsWith("_rad"))
+    return [key.replace("_rad", ""), `${formatNumber((value * 180) / Math.PI, 2)} deg`];
+  if (key === "ground_truth_xy_correction")
+    return [key, value ? "on" : "off"];
+  return [key, JSON.stringify(value)];
+}
+
+/** Render the test case panel and the overview of all cases. */
+function renderCase(run) {
+  const panel = byId("case-panel");
+  panel.hidden = !run.case;
+  if (!run.case) return;
+  const result = run.case_result;
+  const suite = run.case_suite || {};
+  byId("case-title").textContent = runTitle({
+    case_id: run.case.id,
+    case_title: run.case.title,
+  });
+  byId("case-badge").textContent = predictionLabel(
+    result ? result.as_predicted : undefined,
+  ).toUpperCase();
+  byId("case-basis").textContent =
+    `Written prediction: ${run.case.prediction_basis || "not recorded"}`;
+  const failure = byId("case-failure");
+  failure.hidden = !result?.failure;
+  failure.textContent = result?.failure
+    ? `Recorded failure: ${result.failure}`
+    : "";
+  const assembly = run.metadata?.config?.assembly || {};
+  fillRows(
+    "case-inputs",
+    Object.entries(assembly)
+      .filter(([key]) => !["case", "experiment_name"].includes(key))
+      .map(([key, value]) => formatInput(key, value)),
+  );
+  fillRows("case-outcome", [
+    ["Expected", outcomeName(run.case.expected_outcome)],
+    ["Observed", result ? outcomeName(result.observed_outcome) : "Not published"],
+    ["Recorded status", describeStatus(run.status)[0]],
+    ["Last phase", result?.last_phase || "—"],
+    ["Simulated duration", `${formatNumber(run.duration_s, 1)} s`],
+    ["Config file", result?.config_file || "—"],
+  ]);
+  const number = (value, digits = 2) => formatNumber(value, digits);
+  byId("case-measurements").innerHTML =
+    "<thead><tr><th>Brick</th><th>Target studs</th><th>Connected studs</th><th>Pre-connection lateral (mm)</th><th>Pre-connection gap (mm)</th><th>Pre-connection yaw (deg)</th><th>Final lateral (mm)</th><th>Final yaw (deg)</th><th>Peak simulated force (N)</th></tr></thead><tbody>" +
+    (result?.placements || [])
+      .map(
+        (item) =>
+          `<tr><td>${escapeText(item.brick)}</td><td>${escapeText(JSON.stringify(item.target_offset_studs))}</td><td>${escapeText(item.connected ? JSON.stringify(item.connected_offset_studs) : "none")}</td><td>${number(item.pre_connection_lateral_mm)}</td><td>${number(item.pre_connection_gap_mm)}</td><td>${number(item.pre_connection_yaw_deg)}</td><td>${number(item.final_lateral_error_mm)}</td><td>${number(item.final_yaw_deg)}</td><td>${number(item.peak_simulated_contact_force_n)}</td></tr>`,
+      )
+      .join("") +
+    "</tbody>";
+  const evidence = suite.evidence_classes || {};
+  const evidenceNames = {
+    contact_physics: "Contact physics",
+    simulated_connection: "Simulated connection",
+    ground_truth_corrections: "Ground-truth corrections",
+    other_assumptions: "Other assumptions",
+  };
+  fillRows(
+    "case-evidence",
+    Object.entries(evidence).map(([key, value]) => [
+      evidenceNames[key] || key,
+      value,
+    ]),
+  );
+  byId("case-limitations").innerHTML = (suite.limitations || [])
+    .map((item) => `<li>${escapeText(item)}</li>`)
+    .join("");
+  const environment = suite.environment || {};
+  fillRows("case-provenance", [
+    ["Commit", result?.commit || suite.commit || "—"],
+    ["Suite", suite.suite_id || "—"],
+    ["Isaac Sim", environment.isaacsim || "—"],
+    ["isaac-mcp resolver", environment.isaac_mcp_commit || "—"],
+    [
+      "Lab assets match reference",
+      Object.values(environment.lab_assets || {}).every(
+        (item) => item.matches_reference,
+      )
+        ? "yes"
+        : "no",
+    ],
+  ]);
+  const id = encodeURIComponent(run.id);
+  byId("case-files").innerHTML = [
+    `<a href="/download?id=${id}">Full run log</a>`,
+    run.case_log ? `<a href="/case-log?id=${id}">Console log</a>` : "",
+    `<a href="/case-suite">Suite manifest</a>`,
+  ]
+    .filter(Boolean)
+    .join(" · ");
+  const cases = runs
+    .filter((item) => item.case_id && item.case_observed)
+    .sort((left, right) => left.case_id.localeCompare(right.case_id));
+  const overview = byId("case-overview");
+  overview.innerHTML =
+    "<thead><tr><th>Case</th><th>Test</th><th>Expected</th><th>Observed</th><th>Prediction</th></tr></thead>";
+  const body = document.createElement("tbody");
+  for (const item of cases) {
+    const row = document.createElement("tr");
+    row.className = item.id === run.id ? "active" : "";
+    row.innerHTML = `<td><button type="button" class="case-link">${escapeText(item.case_id)}</button></td><td>${escapeText(item.case_title)}</td><td>${escapeText(outcomeName(item.case_expected))}</td><td>${escapeText(outcomeName(item.case_observed))}</td><td>${escapeText(predictionLabel(item.case_as_predicted))}</td>`;
+    row
+      .querySelector("button")
+      .addEventListener("click", () => selectRun(item.id));
+    body.append(row);
+  }
+  overview.append(body);
+}
+
 /** Format recorded simulation seconds as minutes and seconds. */
 function formatTime(seconds) {
   if (!Number.isFinite(seconds)) return "—";
@@ -88,9 +244,12 @@ function renderRuns() {
   const term = byId("search").value.trim().toLowerCase();
   const filtered = runs.filter((run) => {
     const category = run.status === "completed" ? "completed" : "other";
-    const matchesFilter = activeFilter === "all" || activeFilter === category;
+    const matchesFilter =
+      activeFilter === "all" ||
+      activeFilter === category ||
+      (activeFilter === "cases" && Boolean(run.case_id));
     const text =
-      `${experimentName(run.experiment, run.created_utc)} ${run.filename} ${run.status} ${isControlledRejection(run.experiment, run.created_utc) ? "intentional test" : ""}`.toLowerCase();
+      `${runTitle(run)} ${run.case_category || ""} ${run.filename} ${run.status} ${isControlledRejection(run.experiment, run.created_utc) ? "intentional test" : ""}`.toLowerCase();
     return matchesFilter && text.includes(term);
   });
   byId("run-count").textContent = String(runs.length);
@@ -117,12 +276,13 @@ function renderRuns() {
     );
     button.setAttribute(
       "aria-label",
-      `${experimentName(run.experiment, run.created_utc)}, ${intentional ? "intentional test, " : ""}${describeStatus(run.status)[0]}, ${formatDate(run.created_utc)}`,
+      `${runTitle(run)}, ${intentional ? "intentional test, " : ""}${describeStatus(run.status)[0]}, ${formatDate(run.created_utc)}`,
     );
-    button.innerHTML = `<span class="run-top"><span class="run-title">${escapeText(experimentName(run.experiment, run.created_utc))}</span></span>
+    button.innerHTML = `<span class="run-top"><span class="run-title">${escapeText(runTitle(run))}</span></span>
       <span class="run-date">${escapeText(formatDate(run.created_utc))}</span>
       <span class="run-status"><i class="run-dot ${escapeText(category)}"></i>${escapeText(label)} <span>·</span> ${escapeText(formatTime(run.duration_s))}</span>
-      ${intentional ? '<span class="run-purpose">Intentional test</span>' : ""}`;
+      ${intentional ? '<span class="run-purpose">Intentional test</span>' : ""}
+      ${run.case_id ? `<span class="run-purpose">${escapeText(predictionLabel(run.case_as_predicted))}</span>` : ""}`;
     button.addEventListener("click", () => selectRun(run.id));
     list.append(button);
   }
@@ -368,7 +528,10 @@ async function selectRun(id) {
       byId("content").hidden = false;
       const metadata = run.metadata || {};
       const [status, category] = describeStatus(run.status);
-      const name = experimentName(metadata.experiment, metadata.created_utc);
+      const name = run.case
+        ? `${run.case.id} · ${run.case.title}`
+        : experimentName(metadata.experiment, metadata.created_utc);
+      const result = run.case_result;
       const intentional = isControlledRejection(
         metadata.experiment,
         metadata.created_utc,
@@ -382,9 +545,15 @@ async function selectRun(id) {
       byId("status").className = `status ${category}`;
       byId("scenario-badge").hidden = !intentional;
       byId("scenario-notice").hidden = !intentional;
-      byId("metric-outcome").textContent = status;
+      byId("metric-outcome").textContent = result
+        ? outcomeName(result.observed_outcome)
+        : status;
+      renderCase(run);
       byId("metric-outcome-note").textContent =
         run.error ||
+        (result
+          ? `${predictionLabel(result.as_predicted)}; expected ${outcomeName(result.expected_outcome)}`
+          : null) ||
         (intentional
           ? "Expected: brick 2 is rejected"
           : run.status === "completed"

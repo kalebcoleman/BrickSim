@@ -1018,3 +1018,59 @@ footer span {
     height: 18px;
   }
 }
+
+.case-panel {
+  margin-bottom: 18px;
+}
+.case-panel h3 {
+  margin: 16px 0 6px;
+  font-size: 13px;
+}
+.case-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 24px;
+}
+.case-failure {
+  padding: 8px 10px;
+  border-left: 3px solid #b3261e;
+  background: #fbeeed;
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+.case-table-wrap {
+  overflow-x: auto;
+}
+.case-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+.case-table th,
+.case-table td {
+  padding: 5px 8px;
+  border-bottom: 1px solid var(--line);
+  text-align: left;
+}
+.case-table tr.active {
+  background: #eeeeee;
+  font-weight: 700;
+}
+.case-link {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-decoration: underline;
+  cursor: pointer;
+}
+.case-list {
+  margin: 0;
+  padding-left: 18px;
+  font-size: 13px;
+}
+.case-panel .settings-row dd {
+  font-weight: 400;
+  text-align: left;
+}

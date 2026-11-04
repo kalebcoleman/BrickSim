@@ -38,6 +38,15 @@ experiment and timestamp and labeled as an intentional failure test. Its
 recorded controller outcome is shown separately. Other failed or incomplete
 runs are not assumed to be intentional.
 
+The **Test cases** filter lists the simulation test suite described in
+[UR5e simulation test cases](../ur5e_lego/docs/ur5e-cases.md). Each case shows
+its inputs, written prediction, observed outcome, measurements, what is physics
+versus assisted, limits, provenance, and links to its logs. A result attaches
+only to the exact recording the suite measured, identified by case and creation
+time, so a later local re-run is labeled as not in the published suite. A video
+is labeled either as this run's recording or as a representative recording of
+another case.
+
 All current logs are simulation data. Tool and part poses are in the world
 frame, placement errors are in the support frame, joint angles are radians,
 positions are meters, and force is in newtons. The viewer converts placement
