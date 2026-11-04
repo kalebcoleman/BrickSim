@@ -2,6 +2,7 @@
 
 import asyncio
 import json
+import math
 from os import environ
 from pathlib import Path
 from runpy import run_path
@@ -41,14 +42,23 @@ from bricksim.utils.physics_step import wait_for_physics_step
 
 async def main(
     assembly_config: str = "experiments/ur5e_lego/configs/ur5e_baseplate.json",
+    autoplay: bool = False,
 ) -> None:
     """Create an isolated lab scene and assemble bricks on a baseplate.
 
     Positions are meters, angular joint commands are radians, and quaternions
     are wxyz. Press Play after the scene is prepared to begin the motion.
 
+    The configuration can inject controlled errors, all zero or unset by default:
+    `source_yaw_rad` rotates each loose brick about world Z; `grasp_error_xy_m` adds
+    a world XY error to the commanded grasp; `placement_error_xy_m` and
+    `placement_error_yaw_rad` add a world XY error and a yaw about the target brick
+    center to the commanded placement. `ground_truth_xy_correction` set to false
+    disables the correction of the held brick's XY from simulated poses.
+
     Args:
         assembly_config: Repository-relative path to the placement configuration.
+        autoplay: Start the timeline after the scene is prepared.
 
     Returns:
         None. The simulation pauses after assembly; Stop resets the scene.
@@ -139,12 +149,20 @@ async def main(
     brick_positions = assembly.get(
         "brick_positions_xy_m", config["brick_positions_xy_m"]
     )
+    source_yaw = assembly.get("source_yaw_rad", 0.0)
+    source_rotation = (math.cos(source_yaw / 2), 0.0, 0.0, math.sin(source_yaw / 2))
     brick_paths = []
     for (x, y), color in zip(
         brick_positions, colors[: len(brick_positions)], strict=True
     ):
         brick_paths.append(
-            allocate_brick_part((2, 4, 3), color, -1, pos=(x, y, table_z + 0.001))
+            allocate_brick_part(
+                (2, 4, 3),
+                color,
+                -1,
+                rot=source_rotation,
+                pos=(x, y, table_z + 0.001),
+            )
         )
 
     robot = SingleArticulation(
@@ -231,6 +249,8 @@ async def main(
     print(
         f"UR5e baseplate: tabletop z={table_z:.6f} m; press Play to begin", flush=True
     )
+    if autoplay:
+        await world.play_async()
     await set_gripper(world, gripper, joint, 1.0)
 
     # USD matrices use row-vector convention; transpose for column vectors.
@@ -308,6 +328,9 @@ async def main(
     )
     end_effector = rmpflow.get_end_effector_as_prim()
     total = len(brick_paths)
+    grasp_error_xy = np.array(assembly.get("grasp_error_xy_m", [0.0, 0.0]))
+    placement_error_xy = np.array(assembly.get("placement_error_xy_m", [0.0, 0.0]))
+    placement_error_yaw = assembly.get("placement_error_yaw_rad", 0.0)
     for index, (brick_path, offset, support_index) in enumerate(
         zip(brick_paths, assembly["placement_offsets"], supports, strict=True), start=1
     ):
@@ -329,7 +352,10 @@ async def main(
         source_position, _ = brick.get_world_pose()
         print(f"UR5e baseplate: brick {index}/{total} approach", flush=True)
         for height in (grasp_z + 0.10, grasp_z):
-            target_grasp[:3, 3] = (*source_position[:2], height)
+            target_grasp[:3, 3] = (
+                *(source_position[:2] + grasp_error_xy),
+                height,
+            )
             target_grasp[:3, 3] -= target_grasp[:3, 2] * lateral_offset
             target_tool = target_grasp @ np.linalg.inv(tool_to_grasp)
             await move_to(
@@ -445,8 +471,20 @@ async def main(
             np.asarray(support_orientation)
         ) @ np.asarray(relative_position)
         correction = desired_brick_position[:2] - brick_position[:2]
+        if not assembly.get("ground_truth_xy_correction", True):
+            correction = np.zeros(2)
         target_tool[:2, 3] += correction
-        prepress_position[:2] += correction
+        cos_yaw, sin_yaw = math.cos(placement_error_yaw), math.sin(placement_error_yaw)
+        yaw_error = np.array(
+            [[cos_yaw, -sin_yaw, 0.0], [sin_yaw, cos_yaw, 0.0], [0.0, 0.0, 1.0]]
+        )
+        target_tool[:3, 3] = desired_brick_position + yaw_error @ (
+            target_tool[:3, 3] - desired_brick_position
+        )
+        target_tool[:3, :3] = yaw_error @ target_tool[:3, :3]
+        target_tool[:2, 3] += placement_error_xy
+        target_orientation = rot_matrices_to_quats(target_tool[:3, :3])
+        prepress_position = target_tool[:3, 3] + np.array([0.0, 0.0, 0.025])
         print(
             f"UR5e baseplate: brick {index}/{total} prepress XY correction "
             f"m={correction.tolist()}",
