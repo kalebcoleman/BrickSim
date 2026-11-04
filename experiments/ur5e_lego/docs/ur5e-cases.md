@@ -19,6 +19,23 @@ record the resolver version. Results are written under
 from its prediction. Review results in the
 [dashboard](../../ur5e_dashboard/README.md) under **Test cases**.
 
+The published suite used a read-only export of the resolver, since edits to a live
+checkout can reload extensions inside a running simulator:
+
+    mkdir -p outputs/ur5e_lego/isaac-mcp-af85e6b
+    git -C ~/Desktop/isaac-mcp archive af85e6b exts config scripts mcp \
+      | tar -x -C outputs/ur5e_lego/isaac-mcp-af85e6b
+    export ISAAC_MCP_ROOT="$PWD/outputs/ur5e_lego/isaac-mcp-af85e6b"
+    export ISAAC_MCP_ASSET_PATH="$HOME/Desktop/isaac-mcp-assets"
+    export ISAAC_MCP_ASSET_STRICT=1
+    export ISAAC_MCP_COMMIT=af85e6b6
+    .venv/bin/python experiments/ur5e_lego/scripts/run_ur5e_cases.py --publish
+
+Cases ran with no launcher arguments, MCP bridge or ROS bridge. `ISAAC_MCP_COMMIT` is a
+label you supply; the driver does not check it. C01 to C12 ran at `5f7f411`, C13 at
+`754f904`. Later commits changed only post-run behavior and viewers. The manifest's
+`run_notes` lists edits made after the runs.
+
 To run one case by hand, for recording or inspection:
 
     ./experiments/ur5e_lego/scripts/run_ur5e_case.sh \

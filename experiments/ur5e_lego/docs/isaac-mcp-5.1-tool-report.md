@@ -12,7 +12,7 @@ to that repository and no isaac-mcp file was changed.
 | Simulator | Isaac Sim 5.1.0.0, build `5.1.0-rc.19+release.26219.9c81211b.gl`, Kit 107.3.3, USD 24.05 |
 | Bridge and sim-tools | Commit `af85e6b`, exported read-only with `git archive` |
 | Gateway | Installed tool, editable from the live `~/Desktop/isaac-mcp` checkout (uncommitted changes) |
-| Scene | The BrickSim UR5e baseplate experiment, launched from a shell, not `sim__launch` |
+| Scene | This project's UR5e baseplate experiment, launched from a shell, not `sim__launch` |
 | Physics | PhysX, CPU device, 120 Hz |
 
 Line numbers refer to `af85e6b`. The live checkout has uncommitted edits to these
@@ -127,7 +127,7 @@ above. Fails = failed on 5.1. Refused = clean refusal by design or setup. Not ru
 | Tool | Status | Notes |
 |---|---|---|
 | `sim__list` | Works | Lists managed sessions only, so never showed the 5.1 session |
-| `sim__launch`, `sim__status`, `sim__stop` | Not run | They manage isaac-mcp 6.x sessions, and BrickSim needs its own launcher. **Gap:** no managed way to launch this setup |
+| `sim__launch`, `sim__status`, `sim__stop` | Not run | They manage isaac-mcp 6.x sessions, and this project needs its own launcher. **Gap:** no managed way to launch this setup |
 
 ### Isaac Lab (`isaaclab__*`)
 

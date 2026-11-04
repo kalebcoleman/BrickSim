@@ -304,6 +304,7 @@ def main() -> None:
             },
             "config_file": str(config_path.relative_to(ROOT)),
             "commit": suite["commit"],
+            "suite_id": suite_id,
             "created_utc": created_utc,
             "observed_outcome": observed,
             "as_predicted": observed == expected,

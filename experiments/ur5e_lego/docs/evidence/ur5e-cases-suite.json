@@ -162,7 +162,8 @@
       ],
       "run_log": "ur5e-case-C01-run.jsonl.gz",
       "console_log": "ur5e-case-C01-console.txt",
-      "commit": "5f7f411b2a1997cb9c68056abb04dced872ffba9"
+      "commit": "5f7f411b2a1997cb9c68056abb04dced872ffba9",
+      "suite_id": "20261104T005311Z"
     },
     {
       "id": "C02",
@@ -223,7 +224,8 @@
       ],
       "run_log": "ur5e-case-C02-run.jsonl.gz",
       "console_log": "ur5e-case-C02-console.txt",
-      "commit": "5f7f411b2a1997cb9c68056abb04dced872ffba9"
+      "commit": "5f7f411b2a1997cb9c68056abb04dced872ffba9",
+      "suite_id": "20261104T005311Z"
     },
     {
       "id": "C03",
@@ -288,7 +290,8 @@
       ],
       "run_log": "ur5e-case-C03-run.jsonl.gz",
       "console_log": "ur5e-case-C03-console.txt",
-      "commit": "5f7f411b2a1997cb9c68056abb04dced872ffba9"
+      "commit": "5f7f411b2a1997cb9c68056abb04dced872ffba9",
+      "suite_id": "20261104T005311Z"
     },
     {
       "id": "C04",
@@ -353,7 +356,8 @@
       ],
       "run_log": "ur5e-case-C04-run.jsonl.gz",
       "console_log": "ur5e-case-C04-console.txt",
-      "commit": "5f7f411b2a1997cb9c68056abb04dced872ffba9"
+      "commit": "5f7f411b2a1997cb9c68056abb04dced872ffba9",
+      "suite_id": "20261104T005311Z"
     },
     {
       "id": "C05",
@@ -414,7 +418,8 @@
       ],
       "run_log": "ur5e-case-C05-run.jsonl.gz",
       "console_log": "ur5e-case-C05-console.txt",
-      "commit": "5f7f411b2a1997cb9c68056abb04dced872ffba9"
+      "commit": "5f7f411b2a1997cb9c68056abb04dced872ffba9",
+      "suite_id": "20261104T005311Z"
     },
     {
       "id": "C06",
@@ -476,7 +481,8 @@
       ],
       "run_log": "ur5e-case-C06-run.jsonl.gz",
       "console_log": "ur5e-case-C06-console.txt",
-      "commit": "5f7f411b2a1997cb9c68056abb04dced872ffba9"
+      "commit": "5f7f411b2a1997cb9c68056abb04dced872ffba9",
+      "suite_id": "20261104T005311Z"
     },
     {
       "id": "C07",
@@ -535,7 +541,8 @@
       ],
       "run_log": "ur5e-case-C07-run.jsonl.gz",
       "console_log": "ur5e-case-C07-console.txt",
-      "commit": "5f7f411b2a1997cb9c68056abb04dced872ffba9"
+      "commit": "5f7f411b2a1997cb9c68056abb04dced872ffba9",
+      "suite_id": "20261104T005311Z"
     },
     {
       "id": "C08",
@@ -600,7 +607,8 @@
       ],
       "run_log": "ur5e-case-C08-run.jsonl.gz",
       "console_log": "ur5e-case-C08-console.txt",
-      "commit": "5f7f411b2a1997cb9c68056abb04dced872ffba9"
+      "commit": "5f7f411b2a1997cb9c68056abb04dced872ffba9",
+      "suite_id": "20261104T005311Z"
     },
     {
       "id": "C09",
@@ -662,7 +670,8 @@
       ],
       "run_log": "ur5e-case-C09-run.jsonl.gz",
       "console_log": "ur5e-case-C09-console.txt",
-      "commit": "5f7f411b2a1997cb9c68056abb04dced872ffba9"
+      "commit": "5f7f411b2a1997cb9c68056abb04dced872ffba9",
+      "suite_id": "20261104T005311Z"
     },
     {
       "id": "C10",
@@ -728,7 +737,8 @@
       ],
       "run_log": "ur5e-case-C10-run.jsonl.gz",
       "console_log": "ur5e-case-C10-console.txt",
-      "commit": "5f7f411b2a1997cb9c68056abb04dced872ffba9"
+      "commit": "5f7f411b2a1997cb9c68056abb04dced872ffba9",
+      "suite_id": "20261104T005311Z"
     },
     {
       "id": "C11",
@@ -790,7 +800,8 @@
       ],
       "run_log": "ur5e-case-C11-run.jsonl.gz",
       "console_log": "ur5e-case-C11-console.txt",
-      "commit": "5f7f411b2a1997cb9c68056abb04dced872ffba9"
+      "commit": "5f7f411b2a1997cb9c68056abb04dced872ffba9",
+      "suite_id": "20261104T005311Z"
     },
     {
       "id": "C12",
@@ -847,7 +858,8 @@
       ],
       "run_log": "ur5e-case-C12-run.jsonl.gz",
       "console_log": "ur5e-case-C12-console.txt",
-      "commit": "5f7f411b2a1997cb9c68056abb04dced872ffba9"
+      "commit": "5f7f411b2a1997cb9c68056abb04dced872ffba9",
+      "suite_id": "20261104T005311Z"
     },
     {
       "id": "C13",
@@ -911,8 +923,9 @@
         }
       ],
       "run_log": "ur5e-case-C13-run.jsonl.gz",
-      "console_log": "ur5e-case-C13-console.txt"
+      "console_log": "ur5e-case-C13-console.txt",
+      "suite_id": "20261104T010938Z"
     }
   ],
-  "run_notes": "C01-C12 ran at 5f7f411 with a clean tree. C13 ran at 754f904 with uncommitted dashboard-only edits. Top-level commit and suite_id describe the last invocation; each case records its own commit. C08's and C10's representative videos were changed to C01 after the run because both connected; their recorded metadata still names C05."
+  "run_notes": "C01-C12 ran at 5f7f411 with a clean tree. C13 ran at 754f904 with uncommitted dashboard-only edits. Top-level commit and suite_id describe the last invocation; each case records its own commit. C08's and C10's representative videos were changed to C01 after the run because both connected; their recorded metadata still names C05. Per-case suite_id values were backfilled from the two invocations."
 }
