@@ -55,6 +55,8 @@ async def main(
     `placement_error_yaw_rad` add a world XY error and a yaw about the target brick
     center to the commanded placement. `ground_truth_xy_correction` set to false
     disables the correction of the held brick's XY from simulated poses.
+    `held_brick_pose_assumed_from_grasp` set to true plans the placement without the
+    grasp error, as a controller that cannot measure the held brick would.
 
     Args:
         assembly_config: Repository-relative path to the placement configuration.
@@ -413,6 +415,10 @@ async def main(
         brick_position, brick_orientation = brick.get_world_pose()
         if brick_position[2] < table_z + 0.04:
             raise RuntimeError(f"Brick {index} was not retained during lift")
+        # Plan as if the brick sits where the grasp was intended, not where it is.
+        if assembly.get("held_brick_pose_assumed_from_grasp", False):
+            brick_position = brick_position.copy()
+            brick_position[:2] += grasp_error_xy
 
         # Poses are column-vector transforms; quaternions are wxyz.
         support_position, support_orientation = support.get_world_pose()

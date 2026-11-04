@@ -301,6 +301,7 @@ def main() -> None:
                 if key not in ("case", "experiment_name")
             },
             "config_file": str(config_path.relative_to(ROOT)),
+            "commit": suite["commit"],
             "created_utc": created_utc,
             "observed_outcome": observed,
             "as_predicted": observed == expected,
@@ -334,7 +335,20 @@ def main() -> None:
         for case_id in selected:
             (EVIDENCE / f"ur5e-case-{case_id}-run.mp4").unlink(missing_ok=True)
         for path in directory.glob("ur5e-case*"):
-            shutil.copy2(path, EVIDENCE / path.name)
+            if path.name != manifest.name:
+                shutil.copy2(path, EVIDENCE / path.name)
+        # Keep published cases that this invocation did not rerun.
+        published = EVIDENCE / manifest.name
+        if published.exists():
+            kept = [
+                case
+                for case in json.loads(published.read_text())["cases"]
+                if case["id"] not in selected
+            ]
+            suite["cases"] = sorted(
+                [*kept, *suite["cases"]], key=lambda case: case["id"]
+            )
+        published.write_text(json.dumps(suite, indent=2) + "\n")
     print(f"Suite manifest: {manifest}", flush=True)
     sys.exit(0 if all(case["as_predicted"] for case in suite["cases"]) else 1)
 
