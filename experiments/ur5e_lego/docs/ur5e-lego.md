@@ -17,17 +17,17 @@ the old MCP manifest records a different checksum and is not used by this
 experiment.
 
 The experiment resolves each relative asset reference of the scene in memory
-with the MCP's `resolve_uri`: a local file under `exts/ur5e-dt/assets`, then the
-operator cache (`UR5E_DT_ASSET_CACHE`), then NVIDIA's pinned URL. Open the scene
-through the experiment so those references are resolved. The experiment needs
-the lab-rigged `robot/ur5e.usd`, which has a `tool0` frame that NVIDIA's
-published robot lacks; place it under `exts/ur5e-dt/assets/robot/` (git-ignored).
-The Vention bench has no public source; supply `workstation/vention.usd` in that
-folder or the cache. The gripper parts are bundled.
+with the MCP's `resolve_uri`: the asset store `~/Desktop/isaac-mcp-assets`
+(`ISAAC_MCP_ASSET_PATH` overrides it), then NVIDIA's pinned URL unless
+`ISAAC_MCP_ASSET_STRICT=1`. Open the scene through the experiment so those
+references are resolved. The experiment needs the lab-rigged
+`ur5e-dt/robot/ur5e.usd`, which has a `tool0` frame that NVIDIA's published robot
+lacks. The Vention bench has no public source; supply
+`ur5e-dt/workstation/vention.usd` in the store.
 
-The default asset checkout in `experiments/ur5e_lego/configs/ur5e_lego.json` is
-`~/Desktop/isaac-mcp-assets`. For another layout, set `ISAAC_MCP_ROOT` to the
-checkout before launching:
+The default code checkout in `experiments/ur5e_lego/configs/ur5e_lego.json` is
+`~/Desktop/isaac-mcp`. For another layout, set `ISAAC_MCP_ROOT` to the checkout
+before launching:
 
     git clone https://github.com/kalebcoleman/isaac-mcp.git /path/to/isaac-mcp
     export ISAAC_MCP_ROOT=/path/to/isaac-mcp

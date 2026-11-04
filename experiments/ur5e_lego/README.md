@@ -25,12 +25,12 @@ reported. After an intentional asset change, run it with `--record` and commit
 the hash file.
 
 The lab robot (with its `tool0` frame) and the Vention bench are not in Git.
-The experiments read assets through a second clone of `isaac-mcp` at
-`~/Desktop/isaac-mcp-assets` (`ISAAC_MCP_ROOT` overrides it), kept apart from
-the MCP server's checkout so the robot below does not change what the MCP
-twin loads. Put the robot in its git-ignored `exts/ur5e-dt/assets/robot/` and
-`vention.usd` in `exts/ur5e-dt/assets/workstation/` or the cache
-`~/.cache/ur5e-dt/assets/`.
+The experiments load the asset resolver from the `isaac-mcp` code checkout at
+`~/Desktop/isaac-mcp` (`ISAAC_MCP_ROOT` overrides it). The resolver reads the
+separate asset store `~/Desktop/isaac-mcp-assets`, which is not a Git checkout;
+`ISAAC_MCP_ASSET_PATH` overrides it. The robot is `ur5e-dt/robot/ur5e.usd` and
+the bench is `ur5e-dt/workstation/vention.usd` inside the store. Set
+`ISAAC_MCP_ASSET_STRICT=1` to refuse remote fallback.
 
 From the repository root, choose an experiment:
 
@@ -42,6 +42,11 @@ From the repository root, choose an experiment:
   `./experiments/ur5e_lego/scripts/run_ur5e_stack.sh`
 - [Stack four bricks](docs/ur5e-stack-four.md):
   `./experiments/ur5e_lego/scripts/run_ur5e_stack_four.sh`
+- [Simulation test cases](docs/ur5e-cases.md):
+  `.venv/bin/python experiments/ur5e_lego/scripts/run_ur5e_cases.py`
+
+See also the [meeting brief](docs/ur5e-meeting-brief.md) and the
+[isaac-mcp 5.1 tool report](docs/isaac-mcp-5.1-tool-report.md).
 
 The guides describe the Isaac Sim 5.1 and lab asset requirements, controls,
 results, and limitations. `configs/` contains the scene and placement settings,

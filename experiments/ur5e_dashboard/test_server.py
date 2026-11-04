@@ -555,6 +555,91 @@ class ResultsViewerTests(TestCase):
             worker.join(timeout=5)
             server.server_close()
 
+    def test_case_results_and_video_labels_match_only_their_recording(self) -> None:
+        """Case results and own videos attach only to the exact recorded run."""
+        created = "2026-11-03T12:00:00+00:00"
+        for case_id, stamp, representative in (
+            ("C01", created, None),
+            ("C02", created, "C01"),
+            ("C03", "2026-11-03T13:00:00+00:00", "C01"),
+        ):
+            case = {
+                "id": case_id,
+                "title": f"Test {case_id}",
+                "expected_outcome": "connected",
+            }
+            if representative:
+                case["representative_video_case"] = representative
+            metadata = dict(self.records[0])
+            metadata.update(
+                experiment=f"case_{case_id}",
+                created_utc=stamp,
+                config={"assembly": {"case": case}},
+            )
+            lines = [metadata, *self.records[1:]]
+            (self.outputs / f"{case_id}.jsonl").write_text(
+                "".join(dumps(record) + "\n" for record in lines)
+            )
+        (self.evidence / "ur5e-case-C01-run.mp4").write_bytes(b"video")
+        (self.evidence / "ur5e-case-C01-console.txt").write_text("console")
+        suite = {
+            "suite_id": "suite",
+            "cases": [
+                {
+                    "id": case_id,
+                    "created_utc": created,
+                    "observed_outcome": "connected",
+                    "as_predicted": True,
+                    "console_log": f"ur5e-case-{case_id}-console.txt",
+                }
+                for case_id in ("C01", "C02", "C03")
+            ],
+        }
+        (self.evidence / "ur5e-cases-suite.json").write_text(dumps(suite))
+
+        runs = {run["filename"]: run for run in self.collection.refresh()}
+        own = runs["C01.jsonl"]
+        self.assertTrue(own["case_result"]["as_predicted"])
+        self.assertIn("this C01 run", own["video_label"])
+        self.assertTrue(own["case_log"])
+        borrowed = runs["C02.jsonl"]
+        self.assertIn("does not show this run", borrowed["video_label"])
+        self.assertFalse(borrowed["case_log"])
+        # C03's recording is not the one the suite measured.
+        rerun = runs["C03.jsonl"]
+        self.assertIsNone(rerun["case_result"])
+        self.assertIsNone(rerun["case_suite"])
+        self.assertIn("does not show this run", rerun["video_label"])
+
+        server = DashboardServer(0, self.collection)
+        worker = Thread(target=server.serve_forever, daemon=True)
+        worker.start()
+        connection = HTTPConnection("127.0.0.1", server.server_port, timeout=5)
+        try:
+            connection.request("GET", "/api/runs")
+            listed = {
+                run["case_id"]: run for run in loads(connection.getresponse().read())
+            }
+            self.assertTrue(listed["C01"]["case_as_predicted"])
+            self.assertIsNone(listed["C03"]["case_observed"])
+            connection.request("GET", f"/case-log?id={own['id']}")
+            response = connection.getresponse()
+            self.assertEqual(response.read(), b"console")
+            connection.request("GET", f"/case-log?id={borrowed['id']}")
+            response = connection.getresponse()
+            response.read()
+            self.assertEqual(response.status, 404)
+        finally:
+            connection.close()
+            server.shutdown()
+            worker.join(timeout=5)
+            server.server_close()
+
+    def test_malformed_case_suite_does_not_disable_runs(self) -> None:
+        """An unreadable suite manifest leaves recordings available."""
+        (self.evidence / "ur5e-cases-suite.json").write_text("{not json")
+        self.assertEqual(self.collection.refresh()[0]["status"], "completed")
+
 
 if __name__ == "__main__":
     main()

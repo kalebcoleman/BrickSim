@@ -51,6 +51,14 @@
           <button
             class="filter"
             type="button"
+            data-filter="cases"
+            aria-pressed="false"
+          >
+            Test cases
+          </button>
+          <button
+            class="filter"
+            type="button"
             data-filter="other"
             aria-pressed="false"
           >
@@ -158,13 +166,70 @@
             aria-labelledby="scenario-title"
           >
             <strong id="scenario-title">Intentional failure test</strong>
-            <p>
+            <p id="scenario-text">
               The required simulated assembly force was deliberately raised from
               1 N to 1,000 N before brick 2 to check that its connection would
               be rejected. The interruption / failure shown below is the
               recorded controller outcome. This test does not model physical
               brick breakage.
             </p>
+          </section>
+
+          <section
+            id="case-panel"
+            class="panel case-panel"
+            hidden
+            aria-labelledby="case-title"
+          >
+            <div class="panel-header">
+              <div>
+                <p class="section-label">SIMULATION TEST CASE</p>
+                <h2 id="case-title">Test case</h2>
+              </div>
+              <span id="case-badge" class="small-badge">—</span>
+            </div>
+            <p id="case-basis" class="panel-copy"></p>
+            <p id="case-failure" class="case-failure" hidden></p>
+            <div class="case-grid">
+              <div>
+                <h3>Inputs</h3>
+                <dl id="case-inputs" class="settings"></dl>
+              </div>
+              <div>
+                <h3>Outcome</h3>
+                <dl id="case-outcome" class="settings"></dl>
+              </div>
+            </div>
+            <h3>Measurements by brick</h3>
+            <div class="case-table-wrap">
+              <table id="case-measurements" class="case-table"></table>
+            </div>
+            <p class="fine-print">
+              Lateral, gap and yaw are in the support frame, taken from the last
+              sample before connection. "Final" values after a connection reflect
+              the snap and weld. Force is a solver output, not a calibrated
+              physical force.
+            </p>
+            <div class="case-grid">
+              <div>
+                <h3>What is physics and what is assisted</h3>
+                <dl id="case-evidence" class="settings"></dl>
+              </div>
+              <div>
+                <h3>Limitations</h3>
+                <ul id="case-limitations" class="case-list"></ul>
+                <h3>Provenance</h3>
+                <dl id="case-provenance" class="settings"></dl>
+                <h3>Supporting files</h3>
+                <p id="case-files" class="case-files"></p>
+              </div>
+            </div>
+            <details class="metadata" open>
+              <summary>All test cases</summary>
+              <div class="case-table-wrap">
+                <table id="case-overview" class="case-table"></table>
+              </div>
+            </details>
           </section>
 
           <section class="metrics" aria-label="Run overview">

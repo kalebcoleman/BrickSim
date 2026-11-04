@@ -14,6 +14,7 @@ from urllib.parse import parse_qs, quote, urlsplit
 
 ASSETS = Path(__file__).resolve().parent
 NONFINITE_VALUES = {"NaN": None, "Infinity": None, "-Infinity": None}
+CASE_SUITE = "ur5e-cases-suite.json"
 VIDEO_EVIDENCE = (
     (
         "stack_four",
@@ -69,6 +70,7 @@ class RunCollection:
         self.paths = {}
         self.videos = {}
         self.posters = {}
+        self.case_logs = {}
 
     def read_metadata(self, path: Path) -> dict:
         """Read the first record from a JSON Lines recording.
@@ -393,6 +395,14 @@ class RunCollection:
         paths = {}
         videos = {}
         posters = {}
+        case_logs = {}
+        suite_path = self.evidence / CASE_SUITE
+        try:
+            suite = loads(suite_path.read_text(encoding="utf-8"))
+            suite_cases = suite["cases"] if isinstance(suite["cases"], list) else []
+        except (OSError, ValueError, KeyError, TypeError):
+            suite = {}
+            suite_cases = []
         for identity, (path, metadata) in selected.items():
             run_id = sha256(fsencode(path)).hexdigest()[:20]
             try:
@@ -501,6 +511,46 @@ class RunCollection:
                 and poster.is_file()
                 and poster.resolve().is_relative_to(self.root)
             )
+            # A case result applies only to the exact recording it was computed from.
+            config = metadata.get("config")
+            assembly = config.get("assembly") if isinstance(config, dict) else None
+            case = assembly.get("case") if isinstance(assembly, dict) else None
+            case = case if isinstance(case, dict) else None
+            case_id = str(case.get("id", "")) if case else ""
+            case_result = next(
+                (
+                    item
+                    for item in suite_cases
+                    if isinstance(item, dict)
+                    and case_id
+                    and item.get("id") == case_id
+                    and item.get("created_utc") == metadata.get("created_utc")
+                ),
+                None,
+            )
+            if case_result is not None:
+                own_video = self.evidence / f"ur5e-case-{case_id}-run.mp4"
+                if own_video.is_file():
+                    video = own_video
+                    video_label = (
+                        f"Recording of this {case_id} run; "
+                        "playback is not synchronized."
+                    )
+                log_name = Path(str(case_result.get("console_log", ""))).name
+                if log_name and (self.evidence / log_name).is_file():
+                    case_logs[run_id] = self.evidence / log_name
+            if case and video is None:
+                source = {**case, **(case_result or {})}.get(
+                    "representative_video_case", ""
+                )
+                source = Path(str(source)).name
+                representative = self.evidence / f"ur5e-case-{source}-run.mp4"
+                if source and representative.is_file():
+                    video = representative
+                    video_label = (
+                        f"Representative video from case {source}; "
+                        "it does not show this run."
+                    )
             run = dict(summary)
             run.update(
                 {
@@ -509,6 +559,14 @@ class RunCollection:
                     "video": video is not None,
                     "poster": poster_available,
                     "video_label": video_label,
+                    "case": case,
+                    "case_result": case_result,
+                    "case_suite": (
+                        {key: value for key, value in suite.items() if key != "cases"}
+                        if case_result is not None
+                        else None
+                    ),
+                    "case_log": run_id in case_logs,
                 }
             )
             runs[run_id] = run
@@ -521,6 +579,7 @@ class RunCollection:
         self.paths = paths
         self.videos = videos
         self.posters = posters
+        self.case_logs = case_logs
         return sorted(
             runs.values(),
             key=lambda run: run["metadata"].get("created_utc") or "",
@@ -570,6 +629,16 @@ class DashboardHandler(BaseHTTPRequestHandler):
                             bool(p.get("connected")) for p in run["placements"]
                         ),
                         "placements": len(run["placements"]),
+                        "case_id": (run["case"] or {}).get("id"),
+                        "case_title": (run["case"] or {}).get("title"),
+                        "case_category": (run["case"] or {}).get("category"),
+                        "case_expected": (run["case"] or {}).get("expected_outcome"),
+                        "case_observed": (run["case_result"] or {}).get(
+                            "observed_outcome"
+                        ),
+                        "case_as_predicted": (run["case_result"] or {}).get(
+                            "as_predicted"
+                        ),
                     }
                     for run in runs
                 ],
@@ -612,6 +681,15 @@ class DashboardHandler(BaseHTTPRequestHandler):
         elif route.path == "/download" and run_id in server.collection.paths:
             path = server.collection.paths[run_id]
             content_type = "application/octet-stream"
+        elif route.path == "/case-log" and run_id in server.collection.case_logs:
+            path = server.collection.case_logs[run_id]
+            content_type = "text/plain; charset=utf-8"
+        elif (
+            route.path == "/case-suite"
+            and (server.collection.evidence / CASE_SUITE).is_file()
+        ):
+            path = server.collection.evidence / CASE_SUITE
+            content_type = "application/json; charset=utf-8"
         else:
             self.send_error(HTTPStatus.NOT_FOUND)
             return
