@@ -1,6 +1,6 @@
 # Ten-piece dog assembly prototype
 
-Local experiment at baseline c158937. No physics attempt has run yet.
+Experiment at baseline c158937. Results: see [RESULTS.md](RESULTS.md).
 
 The robot is asked to assemble four feet, two wide body supports, a bridging torso,
 a neck, head and tail on the anchored 20x20 plate. It grasps loose parts through
@@ -44,8 +44,6 @@ normal process exit, not merely a movie or the target geometry.
 - Type checker cannot resolve 14 Isaac/Omniverse imports without generated runtime
   search paths; this is not a full type-check pass.
 - All four local lab asset paths resolve. Parent native sources match this baseline.
-- No simulator was running at inspection. Zero robot attempts, no success rate,
-  video or observed collision result yet.
 
 ## Limitations and next acceptance checks
 
@@ -63,3 +61,20 @@ All units match baseline: meters, radians, wxyz quaternions. Recipe offsets are
 integer 8 mm studs, height dimensions are 3.2 mm plate units, and all target yaws
 are zero. Simulation-only; no physical robot, ROS bridge or hardware is connected
 by this launcher.
+
+## Screenshots
+
+Failure (runs 1–2): the head's pickup spot touched the baseplate edge, so the
+gripper closed on nothing and lifted without it.
+
+![Gripper lifts without the head](media/failure_head_not_retained.png)
+![Failure close-up](media/failure_head_closeup.png)
+
+Success (run 3, all ten connections reported by the simulator):
+
+![Mid-run](media/success_midrun.png)
+![Final, full window](media/success_final_full.png)
+![Final close-up](media/success_final_closeup.png)
+
+Full recordings and logs stay local under `outputs/` (gitignored).
+Screenshots are of the simulator window only.
