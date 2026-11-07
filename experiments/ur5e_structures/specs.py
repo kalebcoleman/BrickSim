@@ -11,15 +11,6 @@ B = [4, 2, 3]  # 2x4 brick rotated 90 degrees, long side along x
 # name: (dimensions, support index or None, offset in studs relative to support
 # origin, or to the plate corner when unsupported). Order is build order.
 SPECS = {
-    "wall": [
-        (A, None, (9, 2)),
-        (A, None, (9, 6)),
-        (A, None, (9, 10)),
-        (A, None, (9, 14)),
-        (A, 0, (0, 2)),
-        (A, 1, (0, 2)),
-        (A, 2, (0, 2)),
-    ],
     "tower": [
         (A, None, (9, 8)),
         (B, 0, (-1, 1)),
@@ -30,15 +21,19 @@ SPECS = {
     ],
     "l_corner": [
         (A, None, (6, 6)),
-        (A, None, (6, 10)),
+        (A, None, (6, 12)),
+        (A, 0, (0, 2)),
         (B, 1, (0, 2)),
     ],
     "stairs": [
         (A, None, (9, 2)),
-        (A, None, (9, 6)),
-        (A, None, (9, 10)),
+        (A, None, (9, 8)),
+        (A, None, (9, 14)),
+        (A, 0, (0, 2)),
         (A, 1, (0, 2)),
+        (A, 2, (0, 2)),
         (A, 3, (0, 2)),
+        (A, 4, (0, 2)),
     ],
 }
 
@@ -62,7 +57,22 @@ def main() -> None:
             "support_bricks": [p[1] for p in parts],
             "placement_offsets": [list(p[2]) for p in parts],
         }
-        validate(config)
+        origins = validate(config)
+        for i, (x, y, z) in enumerate(origins):
+            for j in range(i):
+                px, py, pz = origins[j]
+                dx, dy = config["brick_dimensions"][j][:2]
+                if (
+                    z == pz
+                    and max(
+                        x - px - dx,
+                        px - x - parts[i][0][0],
+                        y - py - dy,
+                        py - y - parts[i][0][1],
+                    )
+                    < 2
+                ):
+                    raise ValueError(f"{name}: same-layer gap under 2 studs: {j}, {i}")
         Path(__file__).with_name(f"{name}.json").write_text(
             json.dumps(config, indent=2) + "\n"
         )

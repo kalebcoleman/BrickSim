@@ -6,9 +6,15 @@
   "part_names": [
     "l_corner_0",
     "l_corner_1",
-    "l_corner_2"
+    "l_corner_2",
+    "l_corner_3"
   ],
   "brick_dimensions": [
+    [
+      2,
+      4,
+      3
+    ],
     [
       2,
       4,
@@ -40,6 +46,11 @@
       200,
       30,
       30
+    ],
+    [
+      200,
+      30,
+      30
     ]
   ],
   "brick_positions_xy_m": [
@@ -54,11 +65,16 @@
     [
       -0.52,
       -0.38
+    ],
+    [
+      -0.52,
+      -0.29500000000000004
     ]
   ],
   "support_bricks": [
     null,
     null,
+    0,
     1
   ],
   "placement_offsets": [
@@ -68,7 +84,11 @@
     ],
     [
       6,
-      10
+      12
+    ],
+    [
+      0,
+      2
     ],
     [
       0,

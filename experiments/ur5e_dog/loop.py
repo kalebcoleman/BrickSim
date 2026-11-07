@@ -8,6 +8,7 @@ import sys
 from argparse import ArgumentParser
 from datetime import datetime, timezone
 from pathlib import Path
+from re import search
 
 
 def main() -> None:
@@ -52,7 +53,9 @@ def main() -> None:
                 outcome = (
                     "completed"
                     if code == 0
-                    and "assembly succeeded; all 10 bricks connected" in log.read_text()
+                    and search(
+                        r"assembly succeeded; all \d+ bricks connected", log.read_text()
+                    )
                     else "failed"
                 )
             except subprocess.TimeoutExpired:
