@@ -14,6 +14,7 @@ def main() -> None:
     """Run 1–5 attempts and save console output and explicit outcomes."""
     parser = ArgumentParser(description=__doc__)
     parser.add_argument("--attempts", type=int, choices=range(1, 6), default=1)
+    parser.add_argument("--config", default="experiments/ur5e_dog/dog.json")
     parser.add_argument("--timeout", type=int, default=600)
     args = parser.parse_args()
     if not 1 <= args.timeout <= 900:
@@ -32,6 +33,7 @@ def main() -> None:
         "ISAAC_MCP_ASSET_PATH", "/home/kaleb/isaac-workspace/isaac-mcp-assets"
     )
     environment["ISAAC_MCP_ASSET_STRICT"] = "1"
+    environment["DOG_CONFIG"] = args.config
     results = []
     for attempt in range(1, args.attempts + 1):
         log = output / f"attempt-{attempt}.txt"

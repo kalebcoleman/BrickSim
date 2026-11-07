@@ -1,6 +1,6 @@
 """Run one simulated dog assembly; never connects to hardware."""
 
-from os import _exit
+from os import _exit, environ
 from sys import stderr, stdout
 from traceback import print_exc
 
@@ -13,7 +13,9 @@ async def main() -> None:
     Kit otherwise stays alive after the run (scene reset on timeline stop).
     """
     try:
-        await assemble(autoplay=True)
+        await assemble(
+            environ.get("DOG_CONFIG", "experiments/ur5e_dog/dog.json"), autoplay=True
+        )
     except BaseException:
         print_exc()
         stderr.flush()
